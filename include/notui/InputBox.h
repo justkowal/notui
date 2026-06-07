@@ -2,6 +2,7 @@
 
 #include "notui/Widget.h"
 #include "notui/Style.h"
+#include "notui/FocusManager.h"
 #include <string>
 #include <functional>
 #include <type_traits>
@@ -95,19 +96,14 @@ public:
                 text_.erase(cursor_pos_ - 1, 1);
                 cursor_pos_--;
             } 
-            else if (input.id == NCKEY_LEFT && cursor_pos_ > 0) {
-                cursor_pos_--;
-            }
-            else if (input.id == NCKEY_LEFT && cursor_pos_ == 0) {
-                return false;
+            else if ((input.id == NCKEY_LEFT && cursor_pos_ == 0) || 
+                     (input.id == NCKEY_RIGHT && cursor_pos_ >= text_.length())) {
+                return false; // Bubble up to FocusManager to jump to next widget
             } 
             else if (input.id == NCKEY_RIGHT && cursor_pos_ < text_.length()) {
                 cursor_pos_++;
             }
-            else if (input.id == NCKEY_RIGHT && cursor_pos_ >= text_.length()) {
-                return false;
-            }
-            else if (ncinput_valid_p(&input) && input.id >= 32 && input.id <= 126) {
+            else if (input.id >= 32 && input.id <= 126) { // Removed outdated macro
                 char c = static_cast<char>(input.id);
 
                 // --- TEMPLATE METAPROGRAMMING: INPUT FILTERING ---

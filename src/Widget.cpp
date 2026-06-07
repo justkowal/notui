@@ -19,6 +19,7 @@ Widget::Widget(struct ncplane* parent, int pos_y, int pos_x, int height, int wid
 Widget::~Widget() {
     if (plane_ != nullptr) {
         ncplane_destroy(plane_);
+        plane_ = nullptr; // Crucial: prevent double-free
     }
 }
 

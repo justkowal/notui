@@ -17,6 +17,7 @@ public:
     auto resizeAndMove(int y, int x, int height, int width) -> void override;
     auto render() -> void override;
     auto handleInput(const ncinput& input) -> bool override;
+    auto acceptsFocus() const -> bool override { return false; }
 
 private:
     std::vector<std::unique_ptr<Widget>> children_;
