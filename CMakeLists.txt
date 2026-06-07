@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.14)
+project(notui VERSION 0.1.0 LANGUAGES CXX)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(NOTCURSES REQUIRED IMPORTED_TARGET notcurses)
+
+add_library(notui STATIC
+    src/Widget.cpp
+    src/FocusManager.cpp
+    src/Modal.cpp
+    src/VBox.cpp
+    src/HBox.cpp
+    src/Frame.cpp
+    src/Button.cpp
+    src/Label.cpp
+    src/SplitContainer.cpp
+)
+
+target_include_directories(notui PUBLIC 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+
+target_link_libraries(notui PUBLIC PkgConfig::NOTCURSES)
+
+set_target_properties(notui PROPERTIES CXX_CLANG_TIDY "")
