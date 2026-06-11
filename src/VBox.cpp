@@ -3,95 +3,88 @@
 
 namespace notui {
 
-VBox::VBox(struct ncplane* parent, int y, int x, int height, int width)
-    : Widget(parent, y, x, height, width) {}
+void VBox::layout(struct ncplane* parent_plane, Point pos, Size size) { // NOLINT(readability-function-cognitive-complexity)
+    Widget::layout(parent_plane, pos, size);
+    int border_offset = style.framed ? 1 : 0;
+    int usable_h = std::max(0, size.height - style.pt - style.pb - (style.framed ? 2 : 0));
+    int usable_w = std::max(0, size.width - style.pl - style.pr - (style.framed ? 2 : 0));
 
-auto VBox::addChild(std::unique_ptr<Widget> child) -> void {
-    if (child) {
-        child->setFocusManager(focus_manager_);
-    }
-    children_.push_back(std::move(child));
-    recalculateLayout();
-}
-
-auto VBox::setFocusManager(FocusManager* manager) -> void {
-    Widget::setFocusManager(manager);
-    for (auto& child : children_) {
-        child->setFocusManager(manager);
-    }
-}
-
-auto VBox::resizeAndMove(int y, int x, int height, int width) -> void {
-    Widget::resizeAndMove(y, x, height, width);
-    recalculateLayout();
-}
-
-auto VBox::recalculateLayout() -> void {
-    if (children_.empty()) return;
-
-    int total_fixed_height = 0;
-    int total_percent_height = 0;
-    int expand_count = 0;
-
-    std::vector<int> calculated_heights(children_.size(), 0);
-
-    // PASS 1: Calculate Fixed and Percent sizes
-    for (size_t i = 0; i < children_.size(); ++i) {
-        const auto& policy = children_[i]->getHeightPolicy();
-        
-        if (policy.mode == SizeMode::Fixed) {
-            calculated_heights[i] = policy.value;
-            total_fixed_height += policy.value;
-        } 
-        else if (policy.mode == SizeMode::Percent) {
-            int h = (height_ * policy.value) / 100;
-            calculated_heights[i] = h;
-            total_percent_height += h;
-        } 
-        else if (policy.mode == SizeMode::Expand) {
-            expand_count++;
+    int total_flex = 0;
+    int used_height = 0;
+    for (auto& child : children) {
+        if (child != nullptr && !child->is_overlay) {
+            if (child->flex > 0) {
+                total_flex += child->flex;
+            } else {
+                used_height += child->fixed_height;
+            }
         }
     }
 
-    // PASS 2: Calculate remaining space for 'Expand' widgets
-    int remaining_space = std::max(0, height_ - total_fixed_height - total_percent_height);
-    int expand_height = expand_count > 0 ? (remaining_space / expand_count) : 0;
+    int available_flex_height = std::max(0, usable_h - used_height);
+    int total_content_height = 0;
+    std::vector<int> child_heights(children.size(), 0);
 
-    // PASS 3: Apply the geometry to the children
-    int current_y = 0;
-    for (size_t i = 0; i < children_.size(); ++i) {
-        int final_height = calculated_heights[i];
-        
-        if (children_[i]->getHeightPolicy().mode == SizeMode::Expand) {
-            final_height = expand_height;
-        }
-
-        // VBox forces children to stretch to its full width
-        children_[i]->resizeAndMove(current_y, 0, final_height, width_);
-        current_y += final_height;
-    }
-}
-
-auto VBox::render() -> void {
-    ncplane_erase(plane_);
-    for (auto& child : children_) {
-        child->render();
-    }
-}
-
-auto VBox::handleInput(const ncinput& input) -> bool {
-    // Bubble the input down to the children. First one to consume it wins.
-    for (auto& child : children_) {
-        if (child->handleInput(input)) {
-            return true; 
+    for (size_t i = 0; i < children.size(); ++i) {
+        if (children[i] != nullptr) {
+            if (children[i]->is_overlay) {
+                child_heights[i] = 0;
+            } else if (children[i]->flex > 0) {
+                child_heights[i] = total_flex > 0 ? (available_flex_height * children[i]->flex) / total_flex : 0;
+                total_content_height += child_heights[i];
+            } else {
+                child_heights[i] = children[i]->fixed_height;
+                total_content_height += child_heights[i];
+            }
         }
     }
-    return false;
-}
 
-auto VBox::collectFocusable(std::vector<Widget*>& focusables) -> void {
-    for (auto& child : children_) {
-        child->collectFocusable(focusables);
+    int remaining_space = std::max(0, usable_h - total_content_height);
+    int current_y = style.pt + border_offset;
+    int gap = 0;
+
+    int non_overlay_count = 0;
+    for (auto& child : children) {
+        if (child != nullptr && !child->is_overlay) {
+            non_overlay_count++;
+        }
+    }
+
+    if (remaining_space > 0) {
+        if (main_axis_alignment == MainAxisAlignment::Center) {
+            current_y += remaining_space / 2;
+        } else if (main_axis_alignment == MainAxisAlignment::End) {
+            current_y += remaining_space;
+        } else if (main_axis_alignment == MainAxisAlignment::SpaceBetween && non_overlay_count > 1) {
+            gap = remaining_space / (non_overlay_count - 1);
+        } else if (main_axis_alignment == MainAxisAlignment::SpaceAround && non_overlay_count > 0) {
+            gap = remaining_space / (non_overlay_count + 1);
+            current_y += gap;
+        }
+    }
+
+    for (size_t i = 0; i < children.size(); ++i) {
+        if (children[i] != nullptr) {
+            if (children[i]->is_overlay) {
+                children[i]->layout(plane, Point{0, 0}, Size{height, width});
+            } else {
+                int child_w = usable_w;
+                int child_x = style.pl + border_offset;
+                
+                if (cross_axis_alignment != CrossAxisAlignment::Stretch) {
+                    int desired_w = children[i]->fixed_width > 0 ? children[i]->fixed_width : usable_w;
+                    child_w = std::min(usable_w, desired_w);
+                    if (cross_axis_alignment == CrossAxisAlignment::Center) {
+                        child_x += (usable_w - child_w) / 2;
+                    } else if (cross_axis_alignment == CrossAxisAlignment::End) {
+                        child_x += (usable_w - child_w);
+                    }
+                }
+                
+                children[i]->layout(plane, Point{current_y, child_x}, Size{child_heights[i], child_w});
+                current_y += child_heights[i] + gap;
+            }
+        }
     }
 }
 

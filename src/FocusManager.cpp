@@ -1,230 +1,188 @@
 #include "notui/FocusManager.h"
-
+#include "notui/Container.h"
 #include <algorithm>
-#include <cstdlib>
 #include <cmath>
-#include <limits>
-#include <optional>
 
 namespace notui {
 
-auto FocusManager::rebuild(Widget& root) -> void {
-  Widget* previous = focused_;
-
-  focusables_.clear();
-  root.collectFocusable(focusables_);
-
-  if (focusables_.empty()) {
-    setFocusedWidget(nullptr);
-    return;
-  }
-
-  if (previous != nullptr) {
-    const auto existing = std::find(focusables_.begin(), focusables_.end(), previous);
-    if (existing != focusables_.end()) {
-      setFocusedWidget(*existing);
-      return;
+namespace {
+auto find_active_overlay(Widget* widget) -> Widget* {
+    if (widget == nullptr) {
+        return nullptr;
     }
-  }
+    if (widget->is_overlay) {
+        return widget;
+    }
+    if (auto* container = dynamic_cast<Container*>(widget)) {
+        for (const auto& child : container->get_children()) {
+            Widget* overlay = find_active_overlay(child.get());
+            if (overlay != nullptr) {
+                return overlay;
+            }
+        }
+    }
+    return nullptr;
+}
+} // namespace
 
-  setFocusedWidget(focusables_.front());
+void FocusManager::rebuild(Widget& root) {
+    Widget* prev_focused = focusedWidget();
+    focusable_widgets.clear();
+    
+    Widget* overlay = find_active_overlay(&root);
+    if (overlay != nullptr) {
+        collect_focusables(overlay);
+    } else {
+        collect_focusables(&root);
+    }
+
+    auto iter = std::find(focusable_widgets.begin(), focusable_widgets.end(), prev_focused);
+    if (iter != focusable_widgets.end()) {
+        focus_idx = static_cast<int>(std::distance(focusable_widgets.begin(), iter));
+    } else {
+        focus_idx = -1;
+    }
+
+    if (focus_idx < 0 && !focusable_widgets.empty()) {
+        set_focus(0);
+    } else if (focus_idx >= 0 && focus_idx < static_cast<int>(focusable_widgets.size())) {
+        focusable_widgets[focus_idx]->on_focus();
+    }
+}
+
+auto FocusManager::get_active_overlay(Widget* root) -> Widget* {
+    return find_active_overlay(root);
 }
 
 auto FocusManager::focusedWidget() const -> Widget* {
-  return focused_;
-}
-
-auto FocusManager::focusWidget(Widget* widget) -> bool {
-  if (widget == nullptr) {
-    clearFocus();
-    return true;
-  }
-
-  const auto it = std::find(focusables_.begin(), focusables_.end(), widget);
-  if (it == focusables_.end()) {
-    return false;
-  }
-
-  setFocusedWidget(widget);
-  return true;
-}
-
-auto FocusManager::clearFocus() -> void {
-  setFocusedWidget(nullptr);
-}
-
-auto FocusManager::focusNext() -> bool {
-  if (focusables_.empty()) {
-    return false;
-  }
-
-  if (focused_ == nullptr) {
-    return focusByIndex(0);
-  }
-
-  const auto current_index = findIndex(focused_);
-  const auto next_index = (current_index + 1) % focusables_.size();
-  return focusByIndex(next_index);
-}
-
-auto FocusManager::focusPrevious() -> bool {
-  if (focusables_.empty()) {
-    return false;
-  }
-
-  if (focused_ == nullptr) {
-    return focusByIndex(focusables_.size() - 1);
-  }
-
-  const auto current_index = findIndex(focused_);
-  const auto previous_index = current_index == 0 ? focusables_.size() - 1 : current_index - 1;
-  return focusByIndex(previous_index);
-}
-
-auto FocusManager::focus(Direction direction) -> bool {
-  Widget* candidate = bestDirectionalCandidate(direction);
-  if (candidate == nullptr) {
-    return false;
-  }
-
-  setFocusedWidget(candidate);
-  return true;
-}
-
-auto FocusManager::handleKeyboardInput(const ncinput& input) -> bool {
-  if (input.id == NCKEY_TAB) {
-    return ncinput_shift_p(&input) ? focusPrevious() : focusNext();
-  }
-
-  if (input.id == NCKEY_UP) {
-    return focus(Direction::Up);
-  }
-
-  if (input.id == NCKEY_DOWN) {
-    return focus(Direction::Down);
-  }
-
-  if (input.id == NCKEY_LEFT) {
-    return focus(Direction::Left);
-  }
-
-  if (input.id == NCKEY_RIGHT) {
-    return focus(Direction::Right);
-  }
-
-  return false;
-}
-
-auto FocusManager::setFocusedWidget(Widget* widget) -> void {
-  if (focused_ == widget) {
-    return;
-  }
-
-  if (focused_ != nullptr) {
-    focused_->is_focused_ = false;
-    focused_->onBlur();
-  }
-
-  focused_ = widget;
-
-  if (focused_ != nullptr) {
-    focused_->is_focused_ = true;
-    focused_->onFocus();
-  }
-}
-
-auto FocusManager::findIndex(Widget* widget) const -> std::vector<Widget*>::size_type {
-  const auto it = std::find(focusables_.begin(), focusables_.end(), widget);
-  return static_cast<std::vector<Widget*>::size_type>(std::distance(focusables_.begin(), it));
-}
-
-auto FocusManager::focusByIndex(std::vector<Widget*>::size_type index) -> bool {
-  if (index >= focusables_.size()) {
-    return false;
-  }
-
-  setFocusedWidget(focusables_[index]);
-  return true;
-}
-
-auto FocusManager::bestDirectionalCandidate(Direction direction) const -> Widget* {
-  if (focusables_.empty()) {
+    if (focus_idx >= 0 && focus_idx < static_cast<int>(focusable_widgets.size())) {
+        return focusable_widgets[focus_idx];
+    }
     return nullptr;
-  }
+}
 
-  if (focused_ == nullptr) {
-    return focusables_.front();
-  }
+void FocusManager::set_focus(int index) {
+    if (focusable_widgets.empty()) {
+        return;
+    }
+    if (focus_idx == index) {
+        return;
+    }
+    if (focus_idx >= 0 && focus_idx < static_cast<int>(focusable_widgets.size())) {
+        focusable_widgets[focus_idx]->on_blur();
+    }
+    
+    focus_idx = index;
+    if (focus_idx >= 0 && focus_idx < static_cast<int>(focusable_widgets.size())) {
+        focusable_widgets[focus_idx]->on_focus();
+    }
+}
 
-  int current_y = 0;
-  int current_x = 0;
-  focused_->getAbsolutePosition(current_y, current_x);
-  const long long current_center_y = static_cast<long long>(current_y) + focused_->getHeight() / 2;
-  const long long current_center_x = static_cast<long long>(current_x) + focused_->getWidth() / 2;
+void FocusManager::set_focus(Widget* widget) {
+    auto iter = std::find(focusable_widgets.begin(), focusable_widgets.end(), widget);
+    if (iter != focusable_widgets.end()) {
+        set_focus(static_cast<int>(std::distance(focusable_widgets.begin(), iter)));
+    }
+}
 
-  struct CandidateScore {
-    long long distance = std::numeric_limits<long long>::max();
-    long long primary_delta = std::numeric_limits<long long>::max();
-    long long secondary_delta = std::numeric_limits<long long>::max();
-    std::vector<Widget*>::size_type index = 0;
-    Widget* widget = nullptr;
-  };
+auto FocusManager::focus_next() -> bool {
+    if (focusable_widgets.empty()) {
+        return false;
+    }
+    set_focus((focus_idx + 1) % static_cast<int>(focusable_widgets.size()));
+    return true;
+}
 
-  std::optional<CandidateScore> best;
-
-  for (std::vector<Widget*>::size_type index = 0; index < focusables_.size(); ++index) {
-    Widget* candidate = focusables_[index];
-    if (candidate == nullptr || candidate == focused_ || candidate->getHeight() <= 0 || candidate->getWidth() <= 0) {
-      continue;
+auto FocusManager::handle_directional_focus(int key) -> bool { // NOLINT(readability-function-cognitive-complexity)
+    if (focusable_widgets.empty() || focus_idx < 0) {
+        return false;
+    }
+    Widget* current = focusable_widgets[focus_idx];
+    if (current->plane == nullptr) {
+        return false;
     }
 
-    int candidate_y = 0;
-    int candidate_x = 0;
-    candidate->getAbsolutePosition(candidate_y, candidate_x);
-    const long long candidate_center_y = static_cast<long long>(candidate_y) + candidate->getHeight() / 2;
-    const long long candidate_center_x = static_cast<long long>(candidate_x) + candidate->getWidth() / 2;
+    int cur_y = ncplane_abs_y(current->plane);
+    int cur_x = ncplane_abs_x(current->plane);
+    
+    int best_idx = -1;
+    int min_dist = 999999;
 
-    bool direction_matches = false;
-    switch (direction) {
-      case Direction::Up:
-        direction_matches = candidate_center_y < current_center_y;
-        break;
-      case Direction::Down:
-        direction_matches = candidate_center_y > current_center_y;
-        break;
-      case Direction::Left:
-        direction_matches = candidate_center_x < current_center_x;
-        break;
-      case Direction::Right:
-        direction_matches = candidate_center_x > current_center_x;
-        break;
+    for (size_t i = 0; i < focusable_widgets.size(); ++i) {
+        if (static_cast<int>(i) == focus_idx) {
+            continue;
+        }
+        Widget* widget = focusable_widgets[i];
+        if (widget->plane == nullptr) {
+            continue;
+        }
+
+        int w_y = ncplane_abs_y(widget->plane);
+        int w_x = ncplane_abs_x(widget->plane);
+        
+        int diff_y = w_y - cur_y;
+        int diff_x = w_x - cur_x;
+        
+        bool valid = false;
+        if (key == NCKEY_UP && diff_y < 0) {
+            valid = true;
+        }
+        if (key == NCKEY_DOWN && diff_y > 0) {
+            valid = true;
+        }
+        if (key == NCKEY_LEFT && diff_x < 0) {
+            valid = true;
+        }
+        if (key == NCKEY_RIGHT && diff_x > 0) {
+            valid = true;
+        }
+        
+        if (valid) {
+            int dist = 0;
+            if (key == NCKEY_UP || key == NCKEY_DOWN) {
+                dist = std::abs(diff_y) * 10 + std::abs(diff_x) * 50; 
+            } else {
+                dist = std::abs(diff_x) * 10 + std::abs(diff_y) * 50;
+            }
+            
+            if (dist < min_dist) {
+                min_dist = dist;
+                best_idx = static_cast<int>(i);
+            }
+        }
     }
-
-    if (!direction_matches) {
-      continue;
+    
+    if (best_idx != -1) {
+        set_focus(best_idx);
+        return true;
     }
+    return false;
+}
 
-    const long long dy = candidate_center_y - current_center_y;
-    const long long dx = candidate_center_x - current_center_x;
-    const long long distance = dy * dy + dx * dx;
-    const long long primary_delta = (direction == Direction::Up || direction == Direction::Down)
-        ? std::llabs(dy)
-        : std::llabs(dx);
-    const long long secondary_delta = (direction == Direction::Up || direction == Direction::Down)
-        ? std::llabs(dx)
-        : std::llabs(dy);
-
-    CandidateScore score{distance, primary_delta, secondary_delta, index, candidate};
-
-    if (!best.has_value() || score.distance < best->distance ||
-        (score.distance == best->distance && (score.primary_delta < best->primary_delta ||
-        (score.primary_delta == best->primary_delta && (score.secondary_delta < best->secondary_delta ||
-        (score.secondary_delta == best->secondary_delta && score.index < best->index)))))) {
-      best = score;
+auto FocusManager::handleKeyboardInput(const ncinput& nc_input) -> bool {
+    if (nc_input.id == NCKEY_TAB && (nc_input.evtype == NCTYPE_PRESS || nc_input.evtype == NCTYPE_UNKNOWN)) {
+        return focus_next();
     }
-  }
+    if (nc_input.evtype == NCTYPE_PRESS || nc_input.evtype == NCTYPE_UNKNOWN) {
+        if (nc_input.id == NCKEY_UP || nc_input.id == NCKEY_DOWN || nc_input.id == NCKEY_LEFT || nc_input.id == NCKEY_RIGHT) {
+            return handle_directional_focus(static_cast<int>(nc_input.id));
+        }
+    }
+    return false;
+}
 
-  return best.has_value() ? best->widget : nullptr;
+void FocusManager::collect_focusables(Widget* widget) {
+    if (widget == nullptr) {
+        return;
+    }
+    if (widget->focusable) {
+        focusable_widgets.push_back(widget);
+    }
+    if (auto* container = dynamic_cast<Container*>(widget)) {
+        for (const auto& child : container->get_children()) {
+            collect_focusables(child.get());
+        }
+    }
 }
 
 } // namespace notui

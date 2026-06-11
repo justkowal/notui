@@ -1,30 +1,27 @@
 #pragma once
 
 #include "notui/Widget.h"
-#include "notui/Style.h"
 #include <string>
 #include <functional>
+#include <utility>
 
 namespace notui {
 
-class Button : public Widget {
+struct Button : public Widget {
 public:
-    // We default to size 1x1 because VBox/HBox will immediately resize it anyway
-    Button(struct ncplane* parent, std::string label, std::function<void()> on_click);
-
-    auto acceptsFocus() const -> bool override { return true; }
-    auto setStyle(const Style& style) -> void { style_ = style; }
-    [[nodiscard]] auto getStyle() const -> const Style& { return style_; }
-
-    auto render() -> void override;
-    auto handleInput(const ncinput& input) -> bool override;
-
-private:
-    std::string label_;
-    std::function<void()> on_click_;
-    Style style_;
+    std::string label;
+    std::function<void()> on_click; 
     
-    bool is_hovered_ = false;
+    Button(std::string label_text, std::function<void()> click_callback);
+    ~Button() override = default;
+
+    Button(const Button&) = delete;
+    auto operator=(const Button&) -> Button& = delete;
+    Button(Button&&) = delete;
+    auto operator=(Button&&) -> Button& = delete;
+
+    void render() override;
+    auto handle_input(const ncinput& nc_input) -> bool override;
 };
 
 } // namespace notui

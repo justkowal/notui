@@ -6,14 +6,20 @@ pkg_check_modules(NOTCURSES REQUIRED IMPORTED_TARGET notcurses)
 
 add_library(notui STATIC
     src/Widget.cpp
-    src/FocusManager.cpp
-    src/Modal.cpp
+    src/Container.cpp
     src/VBox.cpp
     src/HBox.cpp
-    src/Frame.cpp
-    src/Button.cpp
+    src/Spacer.cpp
     src/Label.cpp
-    src/SplitContainer.cpp
+    src/Button.cpp
+    src/ScrollArea.cpp
+    src/Dropdown.cpp
+    src/Modal.cpp
+    src/FocusManager.cpp
+    src/Compositor.cpp
+    src/Checkbox.cpp
+    src/TextArea.cpp
+    src/Canvas.cpp
 )
 
 target_include_directories(notui PUBLIC 

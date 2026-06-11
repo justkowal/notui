@@ -1,60 +1,85 @@
 #include "notui/Label.h"
 #include <algorithm>
+#include <sstream>
 
 namespace notui {
 
-Label::Label(struct ncplane* parent, std::string text, TextAlignment align)
-    : Widget(parent, 0, 0, 1, 1), text_(std::move(text)), alignment_(align) {
-    
-    // Labels typically take exactly 1 row of vertical space, but expand to fill horizontal space
-    setHeightPolicy(SizeMode::Fixed, 1);
-    setWidthPolicy(SizeMode::Expand);
+namespace {
 
-    // Labels look best with a transparent/default background in most themes, 
-    // but we will default to standard style colors for safety.
-}
-
-auto Label::setText(std::string text) -> void {
-    text_ = std::move(text);
-    // The next render loop will automatically pick up the new text
-}
-
-auto Label::setAlignment(TextAlignment align) -> void {
-    alignment_ = align;
-}
-
-auto Label::render() -> void {
-    ncplane_erase(plane_);
-
-    // Apply styles
-    uint64_t channels = style_.getNormalChannels();
-    ncplane_set_base(plane_, " ", 0, channels);
-    ncplane_set_fg_rgb8(plane_, style_.fg.r, style_.fg.g, style_.fg.b);
-    ncplane_set_bg_rgb8(plane_, style_.bg.r, style_.bg.g, style_.bg.b);
-
-    // Calculate alignment offsets
-    int text_length = static_cast<int>(text_.length());
-    int print_x = 0;
-
-    switch (alignment_) {
-        case TextAlignment::Left:   
-            print_x = 0; 
-            break;
-        case TextAlignment::Center: 
-            print_x = std::max(0, (width_ - text_length) / 2); 
-            break;
-        case TextAlignment::Right:  
-            print_x = std::max(0, width_ - text_length); 
-            break;
+auto wrap_text(const std::string& input, int max_w) -> std::vector<std::string> {
+    std::vector<std::string> lines;
+    if (max_w <= 0) {
+        lines.emplace_back(input);
+        return lines;
     }
 
-    // Draw the text exactly on row 0, shifted by the calculated X offset
-    ncplane_printf_yx(plane_, 0, print_x, "%s", text_.c_str());
+    std::stringstream stream(input);
+    std::string line;
+    while (std::getline(stream, line, '\n')) {
+        std::stringstream word_stream(line);
+        std::string word;
+        std::string current_line;
+        while (word_stream >> word) {
+            if (current_line.empty()) {
+                current_line = word;
+            } else if (static_cast<int>(current_line.length() + 1 + word.length()) <= max_w) {
+                current_line += " " + word;
+            } else {
+                lines.emplace_back(current_line);
+                current_line = word;
+            }
+        }
+        if (!current_line.empty()) {
+            lines.emplace_back(current_line);
+        } else if (line.empty()) {
+            lines.emplace_back("");
+        }
+    }
+    if (lines.empty()) {
+        lines.emplace_back("");
+    }
+    return lines;
 }
 
-auto Label::handleInput(const ncinput& /*input*/) -> bool {
-    // Labels are purely visual; they never consume mouse clicks or keyboard input
-    return false;
+} // namespace
+
+Label::Label(std::string label_text, Size fixed_size, bool center) 
+    : text(std::move(label_text)), centered(center) { 
+    fixed_height = fixed_size.height; 
+    fixed_width = fixed_size.width; 
+    style = Theme::get_active().label_style;
+}
+
+void Label::set_text(const std::string& new_text) { 
+    text = new_text; 
+}
+
+void Label::render() {
+    if (plane == nullptr) {
+        return;
+    }
+
+    style.apply(plane);
+    ncplane_erase(plane);
+    draw_box(style);
+
+    int border_offset = style.framed ? 1 : 0;
+    int usable_h = std::max(0, height - style.pt - style.pb - (style.framed ? 2 : 0));
+    int usable_w = std::max(0, width - style.pl - style.pr - (style.framed ? 2 : 0));
+
+    int max_text_width = std::max(1, usable_w);
+    std::vector<std::string> wrapped = wrap_text(text, max_text_width);
+
+    int start_y = style.pt + border_offset + std::max(0, (usable_h - static_cast<int>(wrapped.size())) / 2);
+
+    for (size_t i = 0; i < wrapped.size(); ++i) {
+        int line_y = start_y + static_cast<int>(i);
+        if (line_y >= height - style.pb - border_offset) {
+            break;
+        }
+        int text_x = centered ? std::max(style.pl + border_offset, (width - static_cast<int>(wrapped[i].length())) / 2) : style.pl + border_offset;
+        ncplane_putstr_yx(plane, line_y, text_x, wrapped[i].c_str());
+    }
 }
 
 } // namespace notui

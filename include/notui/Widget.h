@@ -1,59 +1,60 @@
 #pragma once
 
 #include <notcurses/notcurses.h>
+#include "notui/Style.h"
+#include "notui/Event.h"
+#include <functional>
+#include <string>
 #include <vector>
-#include "notui/Layout.h"
+#include <unordered_map>
+#include <any>
 
 namespace notui {
 
-class FocusManager;
+struct Widget {
+    std::unordered_map<std::string, std::vector<std::function<void(const Event&)>>> event_listeners;
 
-class Widget {
+    Widget* parent = nullptr;
+    int flex = 0; 
+    int fixed_width = 0;
+    int fixed_height = 0;
+    
+    int abs_y = 0, abs_x = 0, height = 0, width = 0;
+    
+    bool focusable = false;
+    bool is_focused = false;
+    bool is_overlay = false;
+    struct ncplane* plane = nullptr;
 
-public:
-  Widget(Widget&&) = delete;
-  auto operator=(Widget&&) -> Widget& = delete;
-  Widget(struct ncplane* parent, int y, int x, int height, int width);
-  virtual ~Widget();
+    Style style;
+    Style focused_style;
 
-  Widget(const Widget&) = delete;
-  auto operator=(const Widget&) -> Widget& = delete;
+    std::function<void(Widget*)> on_focus_cb;
+    std::function<void(Widget*)> on_blur_cb;
+    std::function<bool(Widget*, const ncinput&)> on_key_cb;
 
-  virtual auto acceptsFocus() const -> bool { return false; }
-  virtual auto onFocus() -> void {}
-  virtual auto onBlur() -> void {}
+    Widget() = default;
+    virtual ~Widget();
 
-  virtual auto render() -> void = 0;
-  virtual auto handleInput(const ncinput& input) -> bool = 0;
-  virtual auto resizeAndMove(int y, int x, int height, int width) -> void;
-  virtual auto collectFocusable(std::vector<Widget*>& widgets) -> void;
-  virtual auto setFocusManager(FocusManager* manager) -> void;
+    Widget(const Widget&) = delete;
+    auto operator=(const Widget&) -> Widget& = delete;
+    Widget(Widget&&) = delete;
+    auto operator=(Widget&&) -> Widget& = delete;
 
-  [[nodiscard]] auto getPlane() const -> struct ncplane* { return plane_; }
-  [[nodiscard]] auto getHeight() const -> int { return height_; }
-  [[nodiscard]] auto getWidth() const -> int { return width_; }
-  [[nodiscard]] auto isFocused() const -> bool { return is_focused_; }
-  auto getAbsolutePosition(int& y, int& x) const -> void;
- 
-  auto setHeightPolicy(SizeMode mode, int value = 0) -> void { height_policy_ = {mode, value}; }
-  auto setWidthPolicy(SizeMode mode, int value = 0) -> void { width_policy_ = {mode, value}; }
+    void on(const std::string& event_name, std::function<void(const Event&)> callback);
+    void emit(const std::string& event_name, const std::any& data = {});
 
-  [[nodiscard]] auto getHeightPolicy() const -> const LayoutPolicy& { return height_policy_; }
-  [[nodiscard]] auto getWidthPolicy() const -> const LayoutPolicy& { return width_policy_; }
+    virtual void destroy_planes();
+    virtual void layout(struct ncplane* parent_plane, Point pos, Size size);
+    void draw_box(const Style& box_style) const;
 
-protected:
-  auto requestFocus() -> void;
-
-  LayoutPolicy height_policy_;
-  LayoutPolicy width_policy_;
-
-  struct ncplane* plane_ = nullptr;
-  int height_;
-  int width_;
-  bool is_focused_ = false;
-  FocusManager* focus_manager_ = nullptr;
-
-  friend class FocusManager;
+    virtual void render() = 0;
+    virtual auto handle_input(const ncinput& nc_input) -> bool;
+    virtual void on_focus();
+    virtual void on_blur();
+    
+    virtual auto contains_focus() -> bool;
+    virtual auto get_widget_at(int pos_y, int pos_x) -> Widget*;
 };
 
-}
+} // namespace notui

@@ -1,39 +1,30 @@
 #pragma once
 
-#include <notcurses/notcurses.h>
-
-#include <vector>
-
 #include "notui/Widget.h"
+#include <vector>
 
 namespace notui {
 
 class FocusManager {
 public:
-  enum class Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-  };
+    void rebuild(Widget& root);
+    
+    [[nodiscard]] auto focusedWidget() const -> Widget*;
+    void set_focus(int index);
+    void set_focus(Widget* widget);
+    auto focus_next() -> bool;
+    auto handle_directional_focus(int key) -> bool;
+    auto handleKeyboardInput(const ncinput& nc_input) -> bool;
+    [[nodiscard]] static auto get_active_overlay(Widget* root) -> Widget*;
 
-  auto rebuild(Widget& root) -> void;
-  auto focusedWidget() const -> Widget*;
-  auto focusWidget(Widget* widget) -> bool;
-  auto clearFocus() -> void;
-  auto focusNext() -> bool;
-  auto focusPrevious() -> bool;
-  auto focus(Direction direction) -> bool;
-  auto handleKeyboardInput(const ncinput& input) -> bool;
+    [[nodiscard]] auto get_focusable_widgets() const -> const std::vector<Widget*>& { return focusable_widgets; }
+    [[nodiscard]] auto get_focus_index() const -> int { return focus_idx; }
 
 private:
-  std::vector<Widget*> focusables_;
-  Widget* focused_ = nullptr;
+    void collect_focusables(Widget* widget);
 
-  auto setFocusedWidget(Widget* widget) -> void;
-  auto findIndex(Widget* widget) const -> std::vector<Widget*>::size_type;
-  auto focusByIndex(std::vector<Widget*>::size_type index) -> bool;
-  auto bestDirectionalCandidate(Direction direction) const -> Widget*;
+    std::vector<Widget*> focusable_widgets;
+    int focus_idx = -1;
 };
 
 } // namespace notui

@@ -1,119 +1,97 @@
-#include <notui/Modal.h>
+#include "notui/Modal.h"
+#include "notui/HBox.h"
+#include "notui/Spacer.h"
 
 namespace notui {
 
-Modal::Modal(struct ncplane* parent, int y, int x, int height, int width, std::string title)
-    : Widget(parent, y, x, height, width), title_(std::move(title)) {
-    bringToFront();
-}
-
-auto Modal::setContent(std::unique_ptr<Widget> content) -> void {
-    content_ = std::move(content);
-    // Automatically size the content to fit inside the modal's 1-character border
-    if (content_) {
-        content_->setFocusManager(focus_manager_);
-        content_->resizeAndMove(1, 1, height_ - 2, width_ - 2);
-    }
-}
-
-auto Modal::setFocusManager(FocusManager* manager) -> void {
-    Widget::setFocusManager(manager);
-    if (content_) {
-        content_->setFocusManager(manager);
-    }
-}
-
-auto Modal::bringToFront() -> void {
-    ncplane_move_top(plane_);
-}
-
-auto Modal::render() -> void {
-    ncplane_erase(plane_);
-
-    // 1. Draw an opaque background to hide elements behind the modal
-    uint64_t channels = 0;
-    ncchannels_set_fg_rgb8(&channels, 230, 230, 230); // White text
-    ncchannels_set_bg_rgb8(&channels, 30, 30, 40);    // Dark slate background
+Modal::Modal(std::string title, std::string message, std::function<void(bool)> callback) 
+    : on_close(std::move(callback)) {
+    fixed_height = 8;
+    fixed_width = 50;
+    is_overlay = true;
     
-    if (is_dragging_) {
-        ncchannels_set_fg_rgb8(&channels, 100, 255, 100); // Turn border green when dragging
-    }
+    style.bg({30, 30, 35}).fg({255, 255, 255}).frame(true, true);
     
-    ncplane_set_base(plane_, " ", 0, channels);
-
-    // 2. Draw standard Notcurses borders
-    nccell ul = NCCELL_TRIVIAL_INITIALIZER, ur = NCCELL_TRIVIAL_INITIALIZER;
-    nccell ll = NCCELL_TRIVIAL_INITIALIZER, lr = NCCELL_TRIVIAL_INITIALIZER;
-    nccell hl = NCCELL_TRIVIAL_INITIALIZER, vl = NCCELL_TRIVIAL_INITIALIZER;
-
-    nccell_load(plane_, &ul, "╭"); nccell_load(plane_, &ur, "╮");
-    nccell_load(plane_, &ll, "╰"); nccell_load(plane_, &lr, "╯");
-    nccell_load(plane_, &hl, "─"); nccell_load(plane_, &vl, "│");
-
-    ncplane_perimeter(plane_, &ul, &ur, &ll, &lr, &hl, &vl, 0);
-
-    // 3. Draw Title Bar
-    if (!title_.empty()) {
-        ncplane_printf_yx(plane_, 0, 2, " %s ", title_.c_str());
-    }
-
-    // 4. Render injected content
-    if (content_) {
-        content_->render();
-    }
+    title_label = std::make_shared<Label>(std::move(title), Size{1, 40}, true);
+    title_label->style.fg({80, 150, 255}).attr(NCSTYLE_BOLD);
+    add_child(title_label);
+    
+    // message body label
+    message_label = std::make_shared<Label>(std::move(message), Size{3, 46}, true);
+    message_label->style.fg({200, 200, 200});
+    add_child(message_label);
+    
+    auto btn_row = std::make_shared<HBox>();
+    btn_row->fixed_height = 1;
+    btn_row->main_axis_alignment = MainAxisAlignment::Center;
+    
+    ok_btn = std::make_shared<Button>("OK", [this]() {
+        if (this->on_close != nullptr) {
+            this->on_close(true);
+        }
+    });
+    ok_btn->style.bg({40, 120, 60}).fg({255, 255, 255});
+    btn_row->add_child(ok_btn);
+    
+    auto spacer = std::make_shared<Spacer>();
+    spacer->fixed_width = 4;
+    spacer->flex = 0;
+    btn_row->add_child(spacer);
+    
+    cancel_btn = std::make_shared<Button>("Cancel", [this]() {
+        if (this->on_close != nullptr) {
+            this->on_close(false);
+        }
+    });
+    cancel_btn->style.bg({120, 40, 40}).fg({255, 255, 255});
+    btn_row->add_child(cancel_btn);
+    
+    add_child(btn_row);
 }
 
-auto Modal::handleInput(const ncinput& input) -> bool {
-    // Determine the absolute position of this modal in the terminal
-    int abs_y, abs_x;
-    ncplane_yx(plane_, &abs_y, &abs_x);
-
-    // --- DRAG LOGIC ---
-    if (is_dragging_) {
-        // Stop dragging on mouse release
-        if (input.evtype == NCTYPE_RELEASE) {
-            is_dragging_ = false;
-            return true;
-        }
-
-        // Calculate delta and move the plane
-        int delta_y = input.y - drag_start_y_;
-        int delta_x = input.x - drag_start_x_;
-        ncplane_move_yx(plane_, plane_start_y_ + delta_y, plane_start_x_ + delta_x);
-        return true; // Consume event so the UI behind it doesn't react
+void Modal::layout(struct ncplane* parent_plane, Point pos, Size size) {
+    abs_y = pos.y; 
+    abs_x = pos.x; 
+    height = size.height; 
+    width = size.width;
+    
+    if (backdrop_plane != nullptr) {
+        ncplane_destroy(backdrop_plane);
+        backdrop_plane = nullptr;
     }
 
-    // Check if the user clicked inside our modal bounding box
-    bool hit_modal = (input.y >= abs_y && input.y < abs_y + height_ && 
-                      input.x >= abs_x && input.x < abs_x + width_);
-
-    if (hit_modal) {
-        // Did they left-click exactly on the top row (Title Bar)?
-        if (input.evtype == NCTYPE_PRESS && input.id == NCKEY_BUTTON1 && input.y == abs_y) {
-            is_dragging_ = true;
-            drag_start_y_ = input.y;
-            drag_start_x_ = input.x;
-            plane_start_y_ = abs_y;
-            plane_start_x_ = abs_x;
-            return true;
-        }
-
-        // Pass input down to the inner content
-        if (content_ && content_->handleInput(input)) {
-            return true;
-        }
-
-        // Even if the inner content didn't use the click/key, we return true 
-        // to trap the input and prevent it from bleeding through to the dashboard below.
-        return true; 
+    struct ncplane_options b_opts = {
+        .y = 0, .x = 0,
+        .rows = static_cast<unsigned>(size.height),
+        .cols = static_cast<unsigned>(size.width),
+        .userptr = this,
+        .name = "modal_backdrop",
+        .resizecb = nullptr,
+        .flags = 0
+    };
+    backdrop_plane = ncplane_create(parent_plane, &b_opts);
+    if (backdrop_plane != nullptr) {
+        ncplane_move_top(backdrop_plane);
+        
+        // dim backdrop plane
+        uint64_t b_channels = 0;
+        ncchannels_set_bg_rgb8(&b_channels, 10, 10, 15);
+        ncchannels_set_bg_alpha(&b_channels, NCALPHA_BLEND);
+        ncchannels_set_fg_alpha(&b_channels, NCALPHA_TRANSPARENT);
+        ncplane_set_base(backdrop_plane, "", 0, b_channels);
+        ncplane_erase(backdrop_plane);
     }
 
-    return false; // User clicked/typed completely outside the modal
+    int center_y = (size.height - fixed_height) / 2;
+    int center_x = (size.width - fixed_width) / 2;
+    VBox::layout(backdrop_plane, Point{center_y, center_x}, Size{fixed_height, fixed_width});
 }
 
-auto Modal::collectFocusable(std::vector<Widget*>& focusables) -> void {
-    if (content_) {
-        content_->collectFocusable(focusables);
+void Modal::destroy_planes() {
+    VBox::destroy_planes();
+    if (backdrop_plane != nullptr) {
+        ncplane_destroy(backdrop_plane);
+        backdrop_plane = nullptr;
     }
 }
 

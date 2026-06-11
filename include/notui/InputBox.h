@@ -1,161 +1,162 @@
 #pragma once
 
 #include "notui/Widget.h"
-#include "notui/Style.h"
-#include "notui/FocusManager.h"
 #include <string>
 #include <functional>
-#include <type_traits>
-#include <stdexcept>
-#include <optional>
+#include <sstream>
 #include <algorithm>
-#include <cctype>
+#include <type_traits>
+#include <array>
 
 namespace notui {
 
-// Defaults to std::string if no type is provided
-template <typename T = std::string>
-class InputBox : public Widget {
+template <typename ValueType>
+struct InputBox : public Widget {
+private:
+    std::string buffer;
+    std::string placeholder;
+    std::function<bool(const std::string&)> validator;
+    int cursor_pos = 0; 
+    int scroll_offset = 0; 
+    std::function<void(const std::string&)> on_change;
+
 public:
-    // The callback now returns an std::optional<T>. 
-    // If they type invalid junk, you get std::nullopt, making it perfectly exception-safe.
-    InputBox(struct ncplane* parent, std::string placeholder = "", std::function<void(std::optional<T>)> on_submit = nullptr)
-        : Widget(parent, 0, 0, 1, 1), placeholder_(std::move(placeholder)), on_submit_(std::move(on_submit)) {
-        setHeightPolicy(SizeMode::Fixed, 1);
-        setWidthPolicy(SizeMode::Expand);
+    explicit InputBox(std::string placeholder_text, int width_val, std::function<bool(const std::string&)> validator_fn = nullptr) 
+        : placeholder(std::move(placeholder_text)), validator(std::move(validator_fn)) {
+        fixed_height = 1; // NOLINT(cppcoreguidelines-prefer-member-initializer)
+        fixed_width = width_val; // NOLINT(cppcoreguidelines-prefer-member-initializer)
+        focusable = true; // NOLINT(cppcoreguidelines-prefer-member-initializer)
+        style = Theme::get_active().input_style; // NOLINT(cppcoreguidelines-prefer-member-initializer)
+        focused_style = Theme::get_active().input_focused; // NOLINT(cppcoreguidelines-prefer-member-initializer)
+    }
+    ~InputBox() override = default;
+
+    InputBox(const InputBox&) = delete;
+    auto operator=(const InputBox&) -> InputBox& = delete;
+    InputBox(InputBox&&) = delete;
+    auto operator=(InputBox&&) -> InputBox& = delete;
+
+    [[nodiscard]] auto get_value() -> ValueType {
+        if constexpr (std::is_same_v<ValueType, std::string>) {
+            return buffer;
+        }
+        ValueType value = ValueType();
+        if (!buffer.empty()) {
+            std::stringstream stream(buffer);
+            stream >> value;
+        }
+        return value;
     }
 
-    auto acceptsFocus() const -> bool override { return true; }
-
-    auto clear() -> void { 
-        text_.clear(); 
-        cursor_pos_ = 0;
-        scroll_offset_ = 0;
+    void set_value(const std::string& val) {
+        buffer = val;
+        cursor_pos = static_cast<int>(buffer.length());
+        scroll_offset = 0;
     }
 
-    auto setStyle(const Style& style) -> void { style_ = style; }
-
-    auto render() -> void override {
-        ncplane_erase(plane_);
-
-        uint64_t channels = 0;
-        if (is_focused_) {
-            ncchannels_set_fg_rgb8(&channels, style_.focus_fg.r, style_.focus_fg.g, style_.focus_fg.b);
-            ncchannels_set_bg_rgb8(&channels, style_.focus_bg.r, style_.focus_bg.g, style_.focus_bg.b);
-        } else {
-            ncchannels_set_fg_rgb8(&channels, style_.fg.r, style_.fg.g, style_.fg.b);
-            ncchannels_set_bg_rgb8(&channels, style_.bg.r, style_.bg.g, style_.bg.b);
-        }
-        ncplane_set_base(plane_, " ", 0, channels);
-
-        std::string display_text = text_.empty() && !is_focused_ ? placeholder_ : text_;
-        if (text_.empty() && !is_focused_) {
-            ncplane_set_fg_rgb8(plane_, 150, 150, 150); // Dim placeholder text
+    void render() override {
+        if (plane == nullptr) {
+            return;
         }
 
-        std::string visible_text = display_text.substr(scroll_offset_, width_);
-        ncplane_printf_yx(plane_, 0, 0, "%s", visible_text.c_str());
+        const Style& input_style = is_focused ? focused_style : style;
+        input_style.apply(plane);
+        ncplane_erase(plane);
+        draw_box(input_style);
 
-        if (is_focused_) {
-            int visual_cursor_x = cursor_pos_ - scroll_offset_;
-            if (visual_cursor_x >= 0 && visual_cursor_x < width_) {
-                char cursor_char = (cursor_pos_ < text_.length()) ? text_[cursor_pos_] : ' ';
-                ncplane_set_fg_rgb8(plane_, style_.focus_bg.r, style_.focus_bg.g, style_.focus_bg.b);
-                ncplane_set_bg_rgb8(plane_, style_.focus_fg.r, style_.focus_fg.g, style_.focus_fg.b);
-                ncplane_printf_yx(plane_, 0, visual_cursor_x, "%c", cursor_char);
-            }
-        }
-    }
-
-    auto handleInput(const ncinput& input) -> bool override {
-        int abs_y, abs_x;
-        ncplane_yx(plane_, &abs_y, &abs_x);
-
-        bool clicked_inside = (input.evtype == NCTYPE_PRESS && input.id == NCKEY_BUTTON1 &&
-                               input.y >= abs_y && input.y < abs_y + height_ && 
-                               input.x >= abs_x && input.x < abs_x + width_);
-
-        if (input.evtype == NCTYPE_PRESS && input.id == NCKEY_BUTTON1) {
-            if (!clicked_inside) return false;
-            requestFocus();
-            return true; 
+        int display_width = width - input_style.pl - input_style.pr;
+        if (display_width < 1) {
+            display_width = 1;
         }
 
-        if (!is_focused_) return false;
+        if (cursor_pos < scroll_offset) {
+            scroll_offset = cursor_pos;
+        } else if (cursor_pos >= scroll_offset + display_width) {
+            scroll_offset = cursor_pos - display_width + 1;
+        }
 
-        if (input.evtype == NCTYPE_PRESS || input.evtype == NCTYPE_REPEAT) {
+        int max_scroll = std::max(0, static_cast<int>(buffer.length()) - display_width + 1);
+        if (scroll_offset > max_scroll) {
+            scroll_offset = max_scroll;
+        }
+
+        std::string display = buffer.empty() && !is_focused ? placeholder : buffer;
+        std::string visible = display.length() > static_cast<size_t>(scroll_offset) ? display.substr(scroll_offset, display_width) : "";
+
+        ncplane_putstr_yx(plane, height / 2, input_style.pl, visible.c_str());
+
+        if (is_focused) {
+            ncplane_set_bg_rgb8(plane, 200, 200, 200);
+            ncplane_set_fg_rgb8(plane, 0, 0, 0);       
+            ncplane_off_styles(plane, NCSTYLE_MASK); 
             
-            if (input.id == NCKEY_ENTER) {
-                if (on_submit_) on_submit_(parseValue());
-                if (focus_manager_ != nullptr) {
-                    focus_manager_->clearFocus();
-                }
-                return true;
-            } 
-            else if (input.id == NCKEY_BACKSPACE && cursor_pos_ > 0) {
-                text_.erase(cursor_pos_ - 1, 1);
-                cursor_pos_--;
-            } 
-            else if ((input.id == NCKEY_LEFT && cursor_pos_ == 0) || 
-                     (input.id == NCKEY_RIGHT && cursor_pos_ >= text_.length())) {
-                return false; // Bubble up to FocusManager to jump to next widget
-            } 
-            else if (input.id == NCKEY_RIGHT && cursor_pos_ < text_.length()) {
-                cursor_pos_++;
+            int cursor_x = input_style.pl + cursor_pos - scroll_offset;
+            if (cursor_pos < static_cast<int>(buffer.length())) {
+                std::array<char, 2> c_str = {buffer[cursor_pos], '\0'};
+                ncplane_putstr_yx(plane, height / 2, cursor_x, c_str.data());
+            } else {
+                ncplane_putstr_yx(plane, height / 2, cursor_x, " ");
             }
-            else if (input.id >= 32 && input.id <= 126) { // Removed outdated macro
-                char c = static_cast<char>(input.id);
+        }
+    }
 
-                // --- TEMPLATE METAPROGRAMMING: INPUT FILTERING ---
-                // If T is a number (int, float, double), physically prevent typing letters
-                if constexpr (std::is_arithmetic_v<T>) {
-                    bool is_valid_numeric = std::isdigit(c) || c == '-' || c == '.';
-                    if (!is_valid_numeric) {
-                        return true; // Consume the keystroke, but do nothing
-                    }
-                }
-
-                text_.insert(cursor_pos_, 1, c);
-                cursor_pos_++;
+    auto handle_input(const ncinput& nc_input) -> bool override { // NOLINT(readability-function-cognitive-complexity)
+        if (nc_input.evtype == NCTYPE_RELEASE) {
+            return false;
+        }
+        
+        if (nc_input.id == NCKEY_LEFT) {
+            if (cursor_pos > 0) { 
+                cursor_pos--; 
+                return true; 
             }
+            return false; 
+        }
+        if (nc_input.id == NCKEY_RIGHT) {
+            if (cursor_pos < static_cast<int>(buffer.length())) { 
+                cursor_pos++; 
+                return true; 
+            }
+            return false; 
+        }
+        if (nc_input.id == NCKEY_UP || nc_input.id == NCKEY_DOWN || nc_input.id == NCKEY_SCROLL_UP || nc_input.id == NCKEY_SCROLL_DOWN) {
+            return false; // bubble vertical events to scrollarea
+        }
 
-            if (cursor_pos_ < scroll_offset_) {
-                scroll_offset_ = cursor_pos_;
-            } else if (cursor_pos_ >= scroll_offset_ + width_) {
-                scroll_offset_ = cursor_pos_ - width_ + 1;
+        std::string prospective_buffer = buffer;
+        bool changed = false;
+
+        if (nc_input.id == NCKEY_BACKSPACE || nc_input.id == 8 || nc_input.id == 127) {
+            if (cursor_pos > 0) { 
+                prospective_buffer.erase(cursor_pos - 1, 1); 
+                changed = true; 
+            }
+        } else if (nc_input.id == NCKEY_DEL) {
+            if (cursor_pos < static_cast<int>(buffer.length())) { 
+                prospective_buffer.erase(cursor_pos, 1); 
+                changed = true; 
+            }
+        } else if (nc_input.id >= 32 && nc_input.id <= 126) {
+            prospective_buffer.insert(cursor_pos, 1, static_cast<char>(nc_input.id));
+            changed = true;
+        }
+
+        if (changed) {
+            if (!validator || validator(prospective_buffer)) {
+                buffer = prospective_buffer;
+                if (nc_input.id == NCKEY_BACKSPACE || nc_input.id == 8 || nc_input.id == 127) {
+                    cursor_pos--;
+                } else if (nc_input.id >= 32 && nc_input.id <= 126) {
+                    cursor_pos++;
+                }
+                emit("change", get_value());
+                if (on_change != nullptr) {
+                    on_change(buffer);
+                }
             }
             return true;
         }
-        return is_focused_;
-    }
-
-private:
-    std::string text_;
-    std::string placeholder_;
-    std::function<void(std::optional<T>)> on_submit_;
-    Style style_;
-    int cursor_pos_ = 0;   
-    int scroll_offset_ = 0;
-
-    // --- TEMPLATE METAPROGRAMMING: TYPE PARSING ---
-    auto parseValue() const -> std::optional<T> {
-        if (text_.empty()) return std::nullopt;
-
-        try {
-            if constexpr (std::is_same_v<T, std::string>) {
-                return text_;
-            } 
-            else if constexpr (std::is_same_v<T, int>) {
-                return std::stoi(text_);
-            } 
-            else if constexpr (std::is_same_v<T, double> || std::is_same_v<T, float>) {
-                return std::stod(text_);
-            }
-        } catch (const std::exception&) {
-            // User typed "-" or "12.3.4" which passed the keystroke filter but isn't a valid number
-            return std::nullopt; 
-        }
-        return std::nullopt;
+        return false; 
     }
 };
 

@@ -1,39 +1,34 @@
 #pragma once
 
-#include "notui/Widget.h"
-#include <memory>
-#include <vector>
+#include "notui/VBox.h"
+#include "notui/Label.h"
+#include "notui/Button.h"
 #include <string>
+#include <functional>
+#include <memory>
 
 namespace notui {
 
-class Modal : public Widget {
-public:
-    Modal(struct ncplane* parent, int pos_y, int pos_x, int height, int width, std::string title = "");
-
-    // Inject any layout or widget to be displayed inside the modal window
-    auto setContent(std::unique_ptr<Widget> content) -> void;
-    auto setFocusManager(FocusManager* manager) -> void override;
-    auto collectFocusable(std::vector<Widget*>& focusables) -> void override;
-
-    auto render() -> void override;
-    
-    // Returns true if the modal trapped the input (preventing background clicks)
-    auto handleInput(const ncinput& input) -> bool override;
-
-    // Forces this window to render above all other UI elements
-    auto bringToFront() -> void;
-
+struct Modal : public VBox {
 private:
-    std::string title_;
-    std::unique_ptr<Widget> content_;
+    std::shared_ptr<Label> title_label;
+    std::shared_ptr<Label> message_label;
+    std::shared_ptr<Button> ok_btn;
+    std::shared_ptr<Button> cancel_btn;
+    struct ncplane* backdrop_plane = nullptr;
+    std::function<void(bool)> on_close;
 
-    // Drag tracking state
-    bool is_dragging_ = false;
-    int drag_start_y_ = 0;
-    int drag_start_x_ = 0;
-    int plane_start_y_ = 0;
-    int plane_start_x_ = 0;
+public:
+    explicit Modal(std::string title, std::string message, std::function<void(bool)> callback);
+    ~Modal() override = default;
+
+    Modal(const Modal&) = delete;
+    auto operator=(const Modal&) -> Modal& = delete;
+    Modal(Modal&&) = delete;
+    auto operator=(Modal&&) -> Modal& = delete;
+
+    void layout(struct ncplane* parent_plane, Point pos, Size size) override;
+    void destroy_planes() override;
 };
 
 } // namespace notui
