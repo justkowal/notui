@@ -49,6 +49,18 @@ Modal::Modal(std::string title, std::string message, std::function<void(bool)> c
     add_child(btn_row);
 }
 
+Modal::Modal(std::string title, int width, int height) {
+    fixed_height = height;
+    fixed_width = width;
+    is_overlay = true;
+    
+    style.bg({30, 30, 35}).fg({255, 255, 255}).frame(true, true);
+    
+    title_label = std::make_shared<Label>(std::move(title), Size{1, width - 6}, true);
+    title_label->style.fg({80, 150, 255}).attr(NCSTYLE_BOLD);
+    add_child(title_label);
+}
+
 void Modal::layout(struct ncplane* parent_plane, Point pos, Size size) {
     abs_y = pos.y; 
     abs_x = pos.x; 
@@ -58,6 +70,10 @@ void Modal::layout(struct ncplane* parent_plane, Point pos, Size size) {
     if (backdrop_plane != nullptr) {
         ncplane_destroy(backdrop_plane);
         backdrop_plane = nullptr;
+    }
+
+    if (parent_plane == nullptr || size.height <= 0 || size.width <= 0) {
+        return;
     }
 
     struct ncplane_options b_opts = {
@@ -93,6 +109,13 @@ void Modal::destroy_planes() {
         ncplane_destroy(backdrop_plane);
         backdrop_plane = nullptr;
     }
+}
+
+void Modal::raise_to_top() {
+    if (backdrop_plane != nullptr) {
+        ncplane_move_top(backdrop_plane);
+    }
+    Widget::raise_to_top();
 }
 
 } // namespace notui

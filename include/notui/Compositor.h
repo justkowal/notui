@@ -3,6 +3,7 @@
 #include "notui/Widget.h"
 #include "notui/FocusManager.h"
 #include <memory>
+#include <functional>
 
 struct notcurses;
 
@@ -28,7 +29,13 @@ public:
     void trigger_layout();
     void run();
 
+    void set_idle_callback(std::function<void()> callback) { idle_callback = std::move(callback); }
+    void set_global_shortcut_handler(std::function<bool(const ncinput&)> handler) { global_shortcut_handler = std::move(handler); }
+
     [[nodiscard]] auto get_focus_manager() -> FocusManager& { return focus_manager; }
+private:
+    std::function<void()> idle_callback = nullptr;
+    std::function<bool(const ncinput&)> global_shortcut_handler = nullptr;
 };
 
 } // namespace notui

@@ -54,6 +54,14 @@ void Label::set_text(const std::string& new_text) {
     text = new_text; 
 }
 
+void Label::set_highlight_query(std::string query) {
+    highlight_query = std::move(query);
+}
+
+auto Label::get_highlight_query() const -> const std::string& {
+    return highlight_query;
+}
+
 void Label::render() {
     if (plane == nullptr) {
         return;
@@ -78,7 +86,55 @@ void Label::render() {
             break;
         }
         int text_x = centered ? std::max(style.pl + border_offset, (width - static_cast<int>(wrapped[i].length())) / 2) : style.pl + border_offset;
-        ncplane_putstr_yx(plane, line_y, text_x, wrapped[i].c_str());
+        
+        std::string line_str = wrapped[i];
+        if (highlight_query.empty()) {
+            ncplane_putstr_yx(plane, line_y, text_x, line_str.c_str());
+        } else {
+            // Find occurrences case-insensitively
+            std::string line_lower = line_str;
+            std::transform(line_lower.begin(), line_lower.end(), line_lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            std::string query_lower = highlight_query;
+            std::transform(query_lower.begin(), query_lower.end(), query_lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+            size_t last_pos = 0;
+            size_t pos = line_lower.find(query_lower, 0);
+
+            // Move cursor to starting point
+            ncplane_cursor_move_yx(plane, line_y, text_x);
+
+            while (pos != std::string::npos) {
+                // Print prefix
+                if (pos > last_pos) {
+                    std::string prefix = line_str.substr(last_pos, pos - last_pos);
+                    ncplane_putstr(plane, prefix.c_str());
+                }
+
+                // Apply highlight style: Bold Yellow
+                ncplane_set_fg_rgb8(plane, 255, 255, 0);
+                ncplane_on_styles(plane, NCSTYLE_BOLD);
+
+                // Print match
+                std::string match = line_str.substr(pos, query_lower.length());
+                ncplane_putstr(plane, match.c_str());
+
+                // Restore original style
+                ncplane_off_styles(plane, NCSTYLE_MASK);
+                if (style.attrs != 0) {
+                    ncplane_set_styles(plane, style.attrs);
+                }
+                ncplane_set_fg_rgb8(plane, style.fg_r, style.fg_g, style.fg_b);
+
+                last_pos = pos + query_lower.length();
+                pos = line_lower.find(query_lower, last_pos);
+            }
+
+            // Print remaining suffix
+            if (last_pos < line_str.length()) {
+                std::string suffix = line_str.substr(last_pos);
+                ncplane_putstr(plane, suffix.c_str());
+            }
+        }
     }
 }
 

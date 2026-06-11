@@ -135,31 +135,23 @@ void draw_fade_overlays(struct ncplane* overlay, const Style& style,
     int bottom_y  = dims.outer_height - style.pb - dims.border_offset - 1;
     int inner_x   = style.pl + dims.border_offset;
 
-    // Opaque mask — conceals border/padding zones
+    // 1. Setup channel options using the style's background color
     uint64_t opaque_ch = 0;
-    ncchannels_set_fg_rgb8(&opaque_ch, style.bg_r, style.bg_g, style.bg_b);
-    ncchannels_set_fg_alpha(&opaque_ch, NCALPHA_OPAQUE);
-    ncchannels_set_bg_rgb8(&opaque_ch, style.bg_r, style.bg_g, style.bg_b);
+    ncchannels_set_fg_alpha(&opaque_ch, NCALPHA_TRANSPARENT);
     ncchannels_set_bg_alpha(&opaque_ch, NCALPHA_OPAQUE);
+    ncchannels_set_bg_rgb8(&opaque_ch, style.bg_r, style.bg_g, style.bg_b);
 
-    // Strong blend cell (innermost fade row)
-    nccell blend_strong = {};
-    nccell_set_fg_alpha(&blend_strong, NCALPHA_BLEND);
-    nccell_set_bg_alpha(&blend_strong, NCALPHA_BLEND);
-    ncchannels_set_fg_rgb8(&blend_strong.channels, style.bg_r, style.bg_g, style.bg_b);
-    ncchannels_set_bg_rgb8(&blend_strong.channels, style.bg_r, style.bg_g, style.bg_b);
+    uint64_t medium_ch = 0;
+    ncchannels_set_bg_alpha(&medium_ch, NCALPHA_TRANSPARENT);
+    ncchannels_set_fg_alpha(&medium_ch, NCALPHA_OPAQUE);
+    ncchannels_set_fg_rgb8(&medium_ch, style.bg_r, style.bg_g, style.bg_b);
 
-    // Soft blend cell (outermost fade row — slightly brighter bg)
-    nccell blend_soft = {};
-    nccell_set_fg_alpha(&blend_soft, NCALPHA_BLEND);
-    nccell_set_bg_alpha(&blend_soft, NCALPHA_BLEND);
-    uint8_t soft_r = static_cast<uint8_t>(std::min(255, style.bg_r + 20));
-    uint8_t soft_g = static_cast<uint8_t>(std::min(255, style.bg_g + 20));
-    uint8_t soft_b = static_cast<uint8_t>(std::min(255, style.bg_b + 20));
-    ncchannels_set_fg_rgb8(&blend_soft.channels, soft_r, soft_g, soft_b);
-    ncchannels_set_bg_rgb8(&blend_soft.channels, soft_r, soft_g, soft_b);
+    uint64_t light_ch = 0;
+    ncchannels_set_bg_alpha(&light_ch, NCALPHA_TRANSPARENT);
+    ncchannels_set_fg_alpha(&light_ch, NCALPHA_OPAQUE);
+    ncchannels_set_fg_rgb8(&light_ch, style.bg_r, style.bg_g, style.bg_b);
 
-    // Fill padding/border zones with opaque mask
+    // 2. Fill padding/border zones with opaque mask
     ncplane_set_channels(overlay, opaque_ch);
     for (int row = dims.border_offset; row < top_y; ++row) {
         for (int col = 0; col < content_w; ++col) {
@@ -172,27 +164,49 @@ void draw_fade_overlays(struct ncplane* overlay, const Style& style,
         }
     }
 
-    // Top fade gradient — only when scrolled down
-    if (dims.scroll_y > 0) {
+    // 3. Top fade gradient (fades from solid at top_y to transparent at top_y+2)
+    if (dims.scroll_y > 0 && dims.usable_h > 4) {
+        // Outermost: Solid background color
+        ncplane_set_channels(overlay, opaque_ch);
+        for (int col = 0; col < content_w; ++col) {
+            ncplane_putstr_yx(overlay, top_y, inner_x + col, " ");
+        }
+        // Middle: Medium shade
         if (top_y + 1 < bottom_y) {
+            ncplane_set_channels(overlay, medium_ch);
             for (int col = 0; col < content_w; ++col) {
-                ncplane_putc_yx(overlay, top_y + 1, inner_x + col, &blend_soft);
+                ncplane_putstr_yx(overlay, top_y + 1, inner_x + col, "▒");
             }
         }
-        for (int col = 0; col < content_w; ++col) {
-            ncplane_putc_yx(overlay, top_y, inner_x + col, &blend_strong);
+        // Innermost: Light shade
+        if (top_y + 2 < bottom_y) {
+            ncplane_set_channels(overlay, light_ch);
+            for (int col = 0; col < content_w; ++col) {
+                ncplane_putstr_yx(overlay, top_y + 2, inner_x + col, "░");
+            }
         }
     }
 
-    // Bottom fade gradient — only when more content is below
-    if (dims.scroll_y < dims.max_scroll) {
+    // 4. Bottom fade gradient (fades from solid at bottom_y to transparent at bottom_y-2)
+    if (dims.scroll_y < dims.max_scroll && dims.usable_h > 4) {
+        // Outermost: Solid background color
+        ncplane_set_channels(overlay, opaque_ch);
+        for (int col = 0; col < content_w; ++col) {
+            ncplane_putstr_yx(overlay, bottom_y, inner_x + col, " ");
+        }
+        // Middle: Medium shade
         if (bottom_y - 1 > top_y) {
+            ncplane_set_channels(overlay, medium_ch);
             for (int col = 0; col < content_w; ++col) {
-                ncplane_putc_yx(overlay, bottom_y - 1, inner_x + col, &blend_soft);
+                ncplane_putstr_yx(overlay, bottom_y - 1, inner_x + col, "▒");
             }
         }
-        for (int col = 0; col < content_w; ++col) {
-            ncplane_putc_yx(overlay, bottom_y, inner_x + col, &blend_strong);
+        // Innermost: Light shade
+        if (bottom_y - 2 > top_y) {
+            ncplane_set_channels(overlay, light_ch);
+            for (int col = 0; col < content_w; ++col) {
+                ncplane_putstr_yx(overlay, bottom_y - 2, inner_x + col, "░");
+            }
         }
     }
 }
@@ -238,6 +252,10 @@ void ScrollArea::layout(struct ncplane* parent_plane, Point pos, Size size) {
     if (overlay_plane != nullptr) {
         ncplane_destroy(overlay_plane);
         overlay_plane = nullptr;
+    }
+
+    if (plane == nullptr) {
+        return;
     }
 
     struct ncplane_options opts = {

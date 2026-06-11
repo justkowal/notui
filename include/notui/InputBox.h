@@ -81,7 +81,9 @@ public:
         }
 
         std::string display = buffer.empty() && !is_focused ? placeholder : buffer;
-        std::string visible = display.length() > static_cast<size_t>(scroll_offset) ? display.substr(scroll_offset, display_width) : "";
+        std::string visible = display.length() > static_cast<size_t>(scroll_offset)
+            ? display.substr(static_cast<size_t>(scroll_offset), static_cast<size_t>(display_width))
+            : "";
 
         ncplane_putstr_yx(plane, height / 2, input_style.pl, visible.c_str());
 
@@ -92,7 +94,7 @@ public:
             
             int cursor_x = input_style.pl + cursor_pos - scroll_offset;
             if (cursor_pos < static_cast<int>(buffer.length())) {
-                std::array<char, 2> c_str = {buffer[cursor_pos], '\0'};
+                std::array<char, 2> c_str = {buffer[static_cast<size_t>(cursor_pos)], '\0'};
                 ncplane_putstr_yx(plane, height / 2, cursor_x, c_str.data());
             } else {
                 ncplane_putstr_yx(plane, height / 2, cursor_x, " ");
@@ -128,16 +130,16 @@ public:
 
         if (nc_input.id == NCKEY_BACKSPACE || nc_input.id == 8 || nc_input.id == 127) {
             if (cursor_pos > 0) { 
-                prospective_buffer.erase(cursor_pos - 1, 1); 
+                prospective_buffer.erase(static_cast<size_t>(cursor_pos - 1), 1); 
                 changed = true; 
             }
         } else if (nc_input.id == NCKEY_DEL) {
             if (cursor_pos < static_cast<int>(buffer.length())) { 
-                prospective_buffer.erase(cursor_pos, 1); 
+                prospective_buffer.erase(static_cast<size_t>(cursor_pos), 1); 
                 changed = true; 
             }
         } else if (nc_input.id >= 32 && nc_input.id <= 126) {
-            prospective_buffer.insert(cursor_pos, 1, static_cast<char>(nc_input.id));
+            prospective_buffer.insert(static_cast<size_t>(cursor_pos), 1, static_cast<char>(nc_input.id));
             changed = true;
         }
 

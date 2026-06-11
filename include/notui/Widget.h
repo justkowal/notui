@@ -55,6 +55,9 @@ struct Widget {
     
     virtual auto contains_focus() -> bool;
     virtual auto get_widget_at(int pos_y, int pos_x) -> Widget*;
+    
+    virtual void raise_to_top();
+    virtual auto is_active_overlay() -> bool;
 };
 
 } // namespace notui

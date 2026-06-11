@@ -1,13 +1,41 @@
 #include "notui/Compositor.h"
 #include "notui/Container.h"
+#include "notui/Button.h"
 #include <notcurses/notcurses.h>
 #include <clocale>
 #include <ctime>
-#include <algorithm>
 #include <vector>
 #include <functional>
 
 namespace notui {
+
+namespace {
+void raise_subtree(Widget* widget) {
+    if (widget == nullptr) {
+        return;
+    }
+    widget->raise_to_top();
+    if (auto* container = dynamic_cast<Container*>(widget)) {
+        for (const auto& child : container->get_children()) {
+            raise_subtree(child.get());
+        }
+    }
+}
+
+void raise_overlays(Widget* widget) {
+    if (widget == nullptr) {
+        return;
+    }
+    if (widget->is_active_overlay()) {
+        raise_subtree(widget);
+    }
+    if (auto* container = dynamic_cast<Container*>(widget)) {
+        for (const auto& child : container->get_children()) {
+            raise_overlays(child.get());
+        }
+    }
+}
+} // namespace
 
 Compositor::Compositor(std::shared_ptr<Widget> root_widget) : root(std::move(root_widget)) {
     std::setlocale(LC_ALL, "");
@@ -53,8 +81,12 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
 
     ncinput nc_input;
     while (running) {
+        if (idle_callback) {
+            idle_callback();
+        }
         if (root != nullptr) {
             root->render();
+            raise_overlays(root.get());
         }
         notcurses_render(nc);
 
@@ -62,6 +94,10 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
         uint32_t result = notcurses_get(nc, &timeout_spec, &nc_input);
 
         if (result == static_cast<uint32_t>(-1)) {
+            continue;
+        }
+
+        if (global_shortcut_handler && global_shortcut_handler(nc_input)) {
             continue;
         }
 
@@ -149,6 +185,9 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
                     Widget* next = curr->parent;
                     if (curr->handle_input(nc_input)) { 
                         handled = true; 
+                        if (dynamic_cast<Button*>(curr) != nullptr) {
+                            focus_manager.set_focus(-1);
+                        }
                         break; 
                     }
                     curr = next;

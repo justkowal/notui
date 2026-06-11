@@ -25,6 +25,10 @@ void Widget::layout(struct ncplane* parent_plane, Point pos, Size size) {
         plane = nullptr;
     }
 
+    if (parent_plane == nullptr || size.height <= 0 || size.width <= 0) {
+        return;
+    }
+
     struct ncplane_options opts = {
         .y = pos.y, .x = pos.x,
         .rows = static_cast<unsigned>(size.height),
@@ -136,6 +140,16 @@ void Widget::emit(const std::string& event_name, const std::any& data) {
             listener(event);
         }
     }
+}
+
+void Widget::raise_to_top() {
+    if (plane != nullptr) {
+        ncplane_move_top(plane);
+    }
+}
+
+auto Widget::is_active_overlay() -> bool {
+    return is_overlay;
 }
 
 } // namespace notui

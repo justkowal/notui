@@ -38,6 +38,10 @@ void Canvas::layout(struct ncplane* parent_plane, Point pos, Size size) {
         visual_plane = nullptr;
     }
     
+    if (plane == nullptr) {
+        return;
+    }
+    
     int border_offset = style.framed ? 1 : 0;
     int client_y = style.pt + border_offset;
     int client_x = style.pl + border_offset;

@@ -173,4 +173,12 @@ auto Dropdown::get_widget_at(int pos_y, int pos_x) -> Widget* {
     return nullptr;
 }
 
+void Dropdown::raise_to_top() {
+    Widget::raise_to_top();
+}
+
+auto Dropdown::is_active_overlay() -> bool {
+    return expanded;
+}
+
 } // namespace notui

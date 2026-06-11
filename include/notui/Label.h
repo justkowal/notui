@@ -9,6 +9,7 @@ class Label : public Widget {
 private:
     std::string text;
     bool centered;
+    std::string highlight_query;
 public:
     explicit Label(std::string label_text, Size fixed_size = {}, bool center = false);
     ~Label() override = default;
@@ -18,6 +19,9 @@ public:
     Label(Label&&) = delete;
     auto operator=(Label&&) -> Label& = delete;
     
+    void set_highlight_query(std::string query);
+    [[nodiscard]] auto get_highlight_query() const -> const std::string&;
+
     void set_text(const std::string& new_text);
     void render() override;
 };

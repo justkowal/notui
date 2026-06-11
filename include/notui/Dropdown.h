@@ -31,6 +31,9 @@ public:
     auto handle_input(const ncinput& nc_input) -> bool override;
     void on_blur() override;
     auto get_widget_at(int pos_y, int pos_x) -> Widget* override;
+    
+    void raise_to_top() override;
+    auto is_active_overlay() -> bool override;
 
     [[nodiscard]] auto get_selected_index() const -> int { return selected_idx; }
     [[nodiscard]] auto get_selected_value() const -> std::string;
