@@ -11,10 +11,17 @@ Button::Button(std::string label_text, std::function<void()> click_callback)
     focusable = true;
     style = Theme::get_active().button_style;
     focused_style = Theme::get_active().button_focused;
+    disabled_style = Theme::get_active().button_disabled;
 }
 
 void Button::render() {
-    const Style& button_style = is_focused ? focused_style : style;
+    const Style* button_style_ptr = &style;
+    if (disabled) {
+        button_style_ptr = &disabled_style;
+    } else if (is_focused) {
+        button_style_ptr = &focused_style;
+    }
+    const Style& button_style = *button_style_ptr;
 
     uint64_t base_channels = 0;
     ncchannels_set_bg_alpha(&base_channels, NCALPHA_TRANSPARENT);
@@ -75,6 +82,9 @@ void Button::render() {
 }
 
 auto Button::handle_input(const ncinput& nc_input) -> bool {
+    if (disabled) {
+        return false;
+    }
     if ((nc_input.id == NCKEY_ENTER || nc_input.id == 13 || nc_input.id == 10 ||
          nc_input.id == NCKEY_BUTTON1) &&
         (nc_input.evtype == NCTYPE_PRESS || nc_input.evtype == NCTYPE_UNKNOWN)) {

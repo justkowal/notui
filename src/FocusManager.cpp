@@ -93,6 +93,40 @@ auto FocusManager::focus_next() -> bool {
     return true;
 }
 
+auto FocusManager::focus_prev() -> bool {
+    if (focusable_widgets.empty()) {
+        return false;
+    }
+    int size = static_cast<int>(focusable_widgets.size());
+    set_focus((focus_idx - 1 + size) % size);
+    return true;
+}
+
+void FocusManager::shift_focus_upstream_from(Widget* widget) {
+    if (focusable_widgets.empty()) {
+        return;
+    }
+    auto iter = std::find(focusable_widgets.begin(), focusable_widgets.end(), widget);
+    if (iter == focusable_widgets.end()) {
+        return;
+    }
+    int idx = static_cast<int>(std::distance(focusable_widgets.begin(), iter));
+    int size = static_cast<int>(focusable_widgets.size());
+    bool found = false;
+    for (int i = 1; i <= size; ++i) {
+        int prev_idx = (idx - i + size) % size;
+        Widget* candidate = focusable_widgets[prev_idx];
+        if (candidate != widget && !candidate->disabled) {
+            set_focus(candidate);
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        set_focus(-1);
+    }
+}
+
 auto FocusManager::handle_directional_focus(int key) -> bool { // NOLINT(readability-function-cognitive-complexity)
     if (focusable_widgets.empty() || focus_idx < 0) {
         return false;
@@ -161,7 +195,12 @@ auto FocusManager::handle_directional_focus(int key) -> bool { // NOLINT(readabi
 
 auto FocusManager::handleKeyboardInput(const ncinput& nc_input) -> bool {
     if (nc_input.id == NCKEY_TAB && (nc_input.evtype == NCTYPE_PRESS || nc_input.evtype == NCTYPE_UNKNOWN)) {
-        return focus_next();
+        const bool shift_pressed = nc_input.shift || ((nc_input.modifiers & NCKEY_MOD_SHIFT) != 0);
+        if (shift_pressed) {
+            return focus_prev();
+        } else {
+            return focus_next();
+        }
     }
     if (nc_input.evtype == NCTYPE_PRESS || nc_input.evtype == NCTYPE_UNKNOWN) {
         if (nc_input.id == NCKEY_UP || nc_input.id == NCKEY_DOWN || nc_input.id == NCKEY_LEFT || nc_input.id == NCKEY_RIGHT) {
@@ -175,7 +214,8 @@ void FocusManager::collect_focusables(Widget* widget) {
     if (widget == nullptr) {
         return;
     }
-    if (widget->focusable) {
+    widget->focus_manager = this;
+    if (widget->focusable && !widget->disabled) {
         focusable_widgets.push_back(widget);
     }
     if (auto* container = dynamic_cast<Container*>(widget)) {

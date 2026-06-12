@@ -21,11 +21,11 @@ void SplitBox::layout(struct ncplane* parent_plane, Point pos, Size size) {
     int usable_w = std::max(0, size.width - style.pl - style.pr - (style.framed ? 2 : 0));
 
     if (!split_enabled_ || children.size() < 2) {
-        // Lay out first child with full usable area
+        // lay out first child
         if (children[0] != nullptr) {
             children[0]->layout(plane, Point{style.pt + border_offset, style.pl + border_offset}, Size{usable_h, usable_w});
         }
-        // Destroy planes for any other children so they are not drawn/active
+        // destroy planes for other children
         for (size_t i = 1; i < children.size(); ++i) {
             if (children[i] != nullptr) {
                 children[i]->destroy_planes();
@@ -137,7 +137,7 @@ auto SplitBox::handle_input(const ncinput& nc_input) -> bool {
     int usable_h = std::max(0, height - style.pt - style.pb - (style.framed ? 2 : 0));
     int usable_w = std::max(0, width - style.pl - style.pr - (style.framed ? 2 : 0));
 
-    // Handle button release
+    // handle button release
     if (nc_input.evtype == NCTYPE_RELEASE) {
         if (is_dragging_) {
             is_dragging_ = false;

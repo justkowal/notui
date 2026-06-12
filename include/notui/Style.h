@@ -102,8 +102,10 @@ struct Theme {
     Style container_bg;
     Style button_style;
     Style button_focused;
+    Style button_disabled;
     Style input_style;
     Style input_focused;
+    Style input_disabled;
     Style label_style;
 
     static auto get_active() -> Theme& {
@@ -112,8 +114,10 @@ struct Theme {
             theme.container_bg.bg({25, 25, 30}).fg({220, 220, 220});
             theme.button_style.bg({45, 50, 65}).fg({220, 220, 220}).pad({0, 2, 0, 2});
             theme.button_focused.bg({80, 150, 255}).fg({0, 0, 0}).attr(NCSTYLE_BOLD).pad({0, 2, 0, 2});
+            theme.button_disabled.bg({35, 35, 35}).fg({95, 95, 95}).pad({0, 2, 0, 2});
             theme.input_style.bg({20, 20, 20}).fg({150, 150, 150}).pad({0, 1, 0, 1});
             theme.input_focused.bg({35, 35, 35}).fg({255, 255, 100}).pad({0, 1, 0, 1}).attr(NCSTYLE_BOLD);
+            theme.input_disabled.bg({20, 20, 20}).fg({75, 75, 75}).pad({0, 1, 0, 1});
             theme.label_style.transparent(true).fg({200, 200, 200}).pad({0, 1, 0, 1});
             return theme;
         }();

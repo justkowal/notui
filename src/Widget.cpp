@@ -1,4 +1,5 @@
 #include "notui/Widget.h"
+#include "notui/FocusManager.h"
 #include <algorithm>
 
 namespace notui {
@@ -89,7 +90,27 @@ void Widget::draw_box(const Style& box_style) const {
     }
 }
 
+void Widget::set_disabled(bool state) {
+    if (disabled == state) {
+        return;
+    }
+    disabled = state;
+    if (disabled && is_focused && focus_manager != nullptr) {
+        focus_manager->shift_focus_upstream_from(this);
+    }
+    if (focus_manager != nullptr) {
+        Widget* root_widget = this;
+        while (root_widget->parent != nullptr) {
+            root_widget = root_widget->parent;
+        }
+        focus_manager->rebuild(*root_widget);
+    }
+}
+
 auto Widget::handle_input(const ncinput& nc_input) -> bool {
+    if (disabled) {
+        return false;
+    }
     emit("key_press", nc_input);
     return on_key_cb != nullptr && on_key_cb(this, nc_input);
 }

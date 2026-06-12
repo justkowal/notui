@@ -13,6 +13,8 @@ public:
     void set_focus(int index);
     void set_focus(Widget* widget);
     auto focus_next() -> bool;
+    auto focus_prev() -> bool;
+    void shift_focus_upstream_from(Widget* widget);
     auto handle_directional_focus(int key) -> bool;
     auto handleKeyboardInput(const ncinput& nc_input) -> bool;
     [[nodiscard]] static auto get_active_overlay(Widget* root) -> Widget*;

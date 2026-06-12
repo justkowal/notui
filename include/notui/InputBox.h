@@ -28,6 +28,7 @@ public:
         focusable = true; // NOLINT(cppcoreguidelines-prefer-member-initializer)
         style = Theme::get_active().input_style; // NOLINT(cppcoreguidelines-prefer-member-initializer)
         focused_style = Theme::get_active().input_focused; // NOLINT(cppcoreguidelines-prefer-member-initializer)
+        disabled_style = Theme::get_active().input_disabled; // NOLINT(cppcoreguidelines-prefer-member-initializer)
     }
     ~InputBox() override = default;
 
@@ -54,12 +55,22 @@ public:
         scroll_offset = 0;
     }
 
+    void set_placeholder(std::string text) {
+        placeholder = std::move(text);
+    }
+
     void render() override {
         if (plane == nullptr) {
             return;
         }
 
-        const Style& input_style = is_focused ? focused_style : style;
+        const Style* input_style_ptr = &style;
+        if (disabled) {
+            input_style_ptr = &disabled_style;
+        } else if (is_focused) {
+            input_style_ptr = &focused_style;
+        }
+        const Style& input_style = *input_style_ptr;
         input_style.apply(plane);
         ncplane_erase(plane);
         draw_box(input_style);
@@ -103,6 +114,9 @@ public:
     }
 
     auto handle_input(const ncinput& nc_input) -> bool override { // NOLINT(readability-function-cognitive-complexity)
+        if (disabled) {
+            return false;
+        }
         if (nc_input.evtype == NCTYPE_RELEASE) {
             return false;
         }

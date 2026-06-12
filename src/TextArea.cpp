@@ -140,6 +140,7 @@ TextArea::TextArea(std::string placeholder_hint, Size fixed_size)
     focusable     = true;
     style         = Theme::get_active().input_style;
     focused_style = Theme::get_active().input_focused;
+    disabled_style = Theme::get_active().input_disabled;
     buffer_lines.emplace_back("");
 }
 
@@ -174,7 +175,13 @@ void TextArea::render() {
         return;
     }
 
-    const Style& cur_style = is_focused ? focused_style : style;
+    const Style* cur_style_ptr = &style;
+    if (disabled) {
+        cur_style_ptr = &disabled_style;
+    } else if (is_focused) {
+        cur_style_ptr = &focused_style;
+    }
+    const Style& cur_style = *cur_style_ptr;
     cur_style.apply(plane);
     ncplane_erase(plane);
     draw_box(cur_style);
@@ -224,6 +231,9 @@ void TextArea::render() {
 }
 
 auto TextArea::handle_input(const ncinput& nc_input) -> bool {
+    if (disabled) {
+        return false;
+    }
     if (nc_input.evtype == NCTYPE_RELEASE) {
         return false;
     }

@@ -130,7 +130,12 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
         }
 
         if (nc_input.id == static_cast<uint32_t>(NCKEY_TAB) && (nc_input.evtype == NCTYPE_PRESS || nc_input.evtype == NCTYPE_UNKNOWN)) {
-            focus_manager.focus_next();
+            const bool shift_pressed = nc_input.shift || ((nc_input.modifiers & NCKEY_MOD_SHIFT) != 0);
+            if (shift_pressed) {
+                focus_manager.focus_prev();
+            } else {
+                focus_manager.focus_next();
+            }
             // force layout if tabbed into scrollarea
             trigger_layout(); 
             continue;

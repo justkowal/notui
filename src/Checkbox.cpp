@@ -10,10 +10,17 @@ Checkbox::Checkbox(std::string label_text, bool default_checked)
     
     style.transparent(true).fg({200, 200, 200}).pad({0, 1, 0, 1});
     focused_style.bg({45, 50, 65}).fg({255, 255, 255}).pad({0, 1, 0, 1}).attr(NCSTYLE_BOLD);
+    disabled_style.transparent(true).fg({95, 95, 95}).pad({0, 1, 0, 1});
 }
 
 void Checkbox::render() {
-    const Style& checkbox_style = is_focused ? focused_style : style;
+    const Style* checkbox_style_ptr = &style;
+    if (disabled) {
+        checkbox_style_ptr = &disabled_style;
+    } else if (is_focused) {
+        checkbox_style_ptr = &focused_style;
+    }
+    const Style& checkbox_style = *checkbox_style_ptr;
     checkbox_style.apply(plane);
     ncplane_erase(plane);
     
@@ -23,6 +30,9 @@ void Checkbox::render() {
 }
 
 auto Checkbox::handle_input(const ncinput& nc_input) -> bool {
+    if (disabled) {
+        return false;
+    }
     if (nc_input.evtype == NCTYPE_RELEASE) {
         return false;
     }

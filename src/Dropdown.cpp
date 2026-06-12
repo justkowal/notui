@@ -11,6 +11,7 @@ Dropdown::Dropdown(std::vector<std::string> opts, int default_idx)
     
     style.bg({35, 35, 45}).fg({220, 220, 220}).pad({0, 1, 0, 1});
     focused_style.bg({50, 70, 90}).fg({255, 255, 255}).pad({0, 1, 0, 1}).attr(NCSTYLE_BOLD);
+    disabled_style.bg({30, 30, 30}).fg({75, 75, 75}).pad({0, 1, 0, 1});
 }
 
 auto Dropdown::get_selected_value() const -> std::string {
@@ -21,9 +22,15 @@ auto Dropdown::get_selected_value() const -> std::string {
 }
 
 void Dropdown::render() {
-    const Style& dropdown_style = is_focused ? focused_style : style;
+    const Style* dropdown_style_ptr = &style;
+    if (disabled) {
+        dropdown_style_ptr = &disabled_style;
+    } else if (is_focused) {
+        dropdown_style_ptr = &focused_style;
+    }
+    const Style& dropdown_style = *dropdown_style_ptr;
     
-    if (expanded) {
+    if (expanded && !disabled) {
         // temporarily grow plane to show list
         ncplane_resize(plane, 0, 0, 0, 0, 0, 0, 1 + static_cast<int>(options.size()), width);
         ncplane_move_top(plane);
@@ -50,7 +57,7 @@ void Dropdown::render() {
     header_text += " " + arrow;
     ncplane_putstr_yx(plane, 0, 0, header_text.c_str());
 
-    if (expanded) {
+    if (expanded && !disabled) {
         // draw options
         for (size_t i = 0; i < options.size(); ++i) {
             int row_y = 1 + static_cast<int>(i);
@@ -80,6 +87,9 @@ void Dropdown::render() {
 }
 
 auto Dropdown::handle_input(const ncinput& nc_input) -> bool { // NOLINT(readability-function-cognitive-complexity)
+    if (disabled) {
+        return false;
+    }
     if (nc_input.evtype == NCTYPE_RELEASE) {
         return false;
     }

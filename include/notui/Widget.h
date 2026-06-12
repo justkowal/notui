@@ -11,6 +11,8 @@
 
 namespace notui {
 
+class FocusManager;
+
 struct Widget {
     std::unordered_map<std::string, std::vector<std::function<void(const Event&)>>> event_listeners;
 
@@ -24,10 +26,14 @@ struct Widget {
     bool focusable = false;
     bool is_focused = false;
     bool is_overlay = false;
+    bool disabled = false;
     struct ncplane* plane = nullptr;
 
     Style style;
     Style focused_style;
+    Style disabled_style;
+
+    FocusManager* focus_manager = nullptr;
 
     std::function<void(Widget*)> on_focus_cb;
     std::function<void(Widget*)> on_blur_cb;
@@ -43,6 +49,8 @@ struct Widget {
 
     void on(const std::string& event_name, std::function<void(const Event&)> callback);
     void emit(const std::string& event_name, const std::any& data = {});
+
+    virtual void set_disabled(bool state);
 
     virtual void destroy_planes();
     virtual void layout(struct ncplane* parent_plane, Point pos, Size size);
