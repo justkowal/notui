@@ -1,4 +1,5 @@
 #include "notui/Container.h"
+#include "notui/FocusManager.h"
 #include <algorithm>
 #include <ranges>
 
@@ -6,8 +7,11 @@ namespace notui {
 
 void Container::add_child(std::shared_ptr<Widget> child) { 
     if (child != nullptr) {
-        child->parent = this;
+        child->set_parent(this);
         children.push_back(std::move(child)); 
+        if (focus_manager != nullptr) {
+            focus_manager->invalidate();
+        }
     }
 }
 
@@ -18,7 +22,11 @@ void Container::remove_child(const std::shared_ptr<Widget>& child) {
     auto iter = std::find(children.begin(), children.end(), child);
     if (iter != children.end()) {
         (*iter)->destroy_planes();
+        (*iter)->set_parent(nullptr);
         children.erase(iter);
+        if (focus_manager != nullptr) {
+            focus_manager->invalidate();
+        }
     }
 }
 

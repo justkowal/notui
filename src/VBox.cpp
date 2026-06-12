@@ -3,6 +3,18 @@
 
 namespace notui {
 
+namespace {
+bool is_overlay_child(const std::shared_ptr<Widget>& child) {
+    if (child == nullptr) {
+        return false;
+    }
+    if (auto* overlay = dynamic_cast<IOverlay*>(child.get())) {
+        return overlay->is_active_overlay();
+    }
+    return child->is_overlay;
+}
+} // namespace
+
 void VBox::layout(struct ncplane* parent_plane, Point pos, Size size) { // NOLINT(readability-function-cognitive-complexity)
     Widget::layout(parent_plane, pos, size);
     int border_offset = style.framed ? 1 : 0;
@@ -12,7 +24,7 @@ void VBox::layout(struct ncplane* parent_plane, Point pos, Size size) { // NOLIN
     int total_flex = 0;
     int used_height = 0;
     for (auto& child : children) {
-        if (child != nullptr && !child->is_overlay) {
+        if (child != nullptr && !is_overlay_child(child)) {
             if (child->flex > 0) {
                 total_flex += child->flex;
             } else {
@@ -27,7 +39,7 @@ void VBox::layout(struct ncplane* parent_plane, Point pos, Size size) { // NOLIN
 
     for (size_t i = 0; i < children.size(); ++i) {
         if (children[i] != nullptr) {
-            if (children[i]->is_overlay) {
+            if (is_overlay_child(children[i])) {
                 child_heights[i] = 0;
             } else if (children[i]->flex > 0) {
                 child_heights[i] = total_flex > 0 ? (available_flex_height * children[i]->flex) / total_flex : 0;
@@ -45,7 +57,7 @@ void VBox::layout(struct ncplane* parent_plane, Point pos, Size size) { // NOLIN
 
     int non_overlay_count = 0;
     for (auto& child : children) {
-        if (child != nullptr && !child->is_overlay) {
+        if (child != nullptr && !is_overlay_child(child)) {
             non_overlay_count++;
         }
     }
@@ -65,7 +77,7 @@ void VBox::layout(struct ncplane* parent_plane, Point pos, Size size) { // NOLIN
 
     for (size_t i = 0; i < children.size(); ++i) {
         if (children[i] != nullptr) {
-            if (children[i]->is_overlay) {
+            if (is_overlay_child(children[i])) {
                 children[i]->layout(plane, Point{0, 0}, Size{height, width});
             } else {
                 int child_w = usable_w;

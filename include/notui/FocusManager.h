@@ -22,11 +22,17 @@ public:
     [[nodiscard]] auto get_focusable_widgets() const -> const std::vector<Widget*>& { return focusable_widgets; }
     [[nodiscard]] auto get_focus_index() const -> int { return focus_idx; }
 
+    void register_widget(Widget* widget);
+    void unregister_widget(Widget* widget);
+    void invalidate() { needs_rebuild = true; }
+
 private:
     void collect_focusables(Widget* widget);
 
     std::vector<Widget*> focusable_widgets;
     int focus_idx = -1;
+    bool needs_rebuild = true;
+    Widget* cached_root = nullptr;
 };
 
 } // namespace notui

@@ -26,7 +26,14 @@ void raise_overlays(Widget* widget) {
     if (widget == nullptr) {
         return;
     }
-    if (widget->is_active_overlay()) {
+    bool is_active = false;
+    if (auto* overlay = dynamic_cast<IOverlay*>(widget)) {
+        is_active = overlay->is_active_overlay();
+    } else {
+        is_active = widget->is_active_overlay();
+    }
+    
+    if (is_active) {
         raise_subtree(widget);
     }
     if (auto* container = dynamic_cast<Container*>(widget)) {

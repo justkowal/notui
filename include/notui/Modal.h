@@ -9,7 +9,7 @@
 
 namespace notui {
 
-struct Modal : public VBox {
+struct Modal : public VBox, public IOverlay {
 protected:
     // NOLINTBEGIN(cppcoreguidelines-non-private-member-variables-in-classes)
     std::shared_ptr<Label> title_label;
@@ -33,6 +33,7 @@ public:
     void layout(struct ncplane* parent_plane, Point pos, Size size) override;
     void destroy_planes() override;
     void raise_to_top() override;
+    auto is_active_overlay() -> bool override { return is_overlay; }
 };
 
 } // namespace notui

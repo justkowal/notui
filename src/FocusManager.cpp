@@ -10,6 +10,11 @@ auto find_active_overlay(Widget* widget) -> Widget* {
     if (widget == nullptr) {
         return nullptr;
     }
+    if (auto* overlay = dynamic_cast<IOverlay*>(widget)) {
+        if (overlay->is_active_overlay()) {
+            return widget;
+        }
+    }
     if (widget->is_overlay) {
         return widget;
     }
@@ -26,8 +31,20 @@ auto find_active_overlay(Widget* widget) -> Widget* {
 } // namespace
 
 void FocusManager::rebuild(Widget& root) {
+    if (!needs_rebuild && cached_root == &root) {
+        Widget* curr = focusedWidget();
+        if (curr != nullptr && (!curr->focusable || curr->disabled)) {
+            needs_rebuild = true;
+        } else {
+            return;
+        }
+    }
+
     Widget* prev_focused = focusedWidget();
     focusable_widgets.clear();
+    
+    cached_root = &root;
+    needs_rebuild = false;
     
     Widget* overlay = find_active_overlay(&root);
     if (overlay != nullptr) {
@@ -221,6 +238,53 @@ void FocusManager::collect_focusables(Widget* widget) {
     if (auto* container = dynamic_cast<Container*>(widget)) {
         for (const auto& child : container->get_children()) {
             collect_focusables(child.get());
+        }
+    }
+}
+
+void FocusManager::register_widget(Widget* widget) {
+    if (widget == nullptr) {
+        return;
+    }
+    widget->focus_manager = this;
+    if (widget->focusable && !widget->disabled) {
+        auto iter = std::find(focusable_widgets.begin(), focusable_widgets.end(), widget);
+        if (iter == focusable_widgets.end()) {
+            focusable_widgets.push_back(widget);
+            invalidate();
+        }
+    }
+    if (auto* container = dynamic_cast<Container*>(widget)) {
+        for (const auto& child : container->get_children()) {
+            register_widget(child.get());
+        }
+    }
+}
+
+void FocusManager::unregister_widget(Widget* widget) {
+    if (widget == nullptr) {
+        return;
+    }
+    auto iter = std::find(focusable_widgets.begin(), focusable_widgets.end(), widget);
+    if (iter != focusable_widgets.end()) {
+        int idx = static_cast<int>(std::distance(focusable_widgets.begin(), iter));
+        focusable_widgets.erase(iter);
+        
+        if (focus_idx == idx) {
+            if (focusable_widgets.empty()) {
+                focus_idx = -1;
+            } else {
+                focus_idx = idx % static_cast<int>(focusable_widgets.size());
+                focusable_widgets[focus_idx]->on_focus();
+            }
+        } else if (focus_idx > idx) {
+            focus_idx--;
+        }
+        invalidate();
+    }
+    if (auto* container = dynamic_cast<Container*>(widget)) {
+        for (const auto& child : container->get_children()) {
+            unregister_widget(child.get());
         }
     }
 }
