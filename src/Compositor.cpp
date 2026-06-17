@@ -4,6 +4,8 @@
 #include <notcurses/notcurses.h>
 #include <clocale>
 #include <cerrno>
+#include <sys/ioctl.h>
+#include <unistd.h>
 #include <ctime>
 #include <vector>
 #include <functional>
@@ -42,6 +44,17 @@ void raise_overlays(Widget* widget) {
             raise_overlays(child.get());
         }
     }
+}
+
+auto get_terminal_size(int& rows, int& cols) -> bool {
+    struct winsize w;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg)
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0) {
+        rows = w.ws_row;
+        cols = w.ws_col;
+        return true;
+    }
+    return false;
 }
 } // namespace
 
@@ -87,8 +100,22 @@ void Compositor::trigger_layout() {
 void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
     trigger_layout();
 
+    int last_rows = 0;
+    int last_cols = 0;
+    get_terminal_size(last_rows, last_cols);
+
     ncinput nc_input;
     while (running) {
+        int current_rows = 0;
+        int current_cols = 0;
+        if (get_terminal_size(current_rows, current_cols)) {
+            if (current_rows != last_rows || current_cols != last_cols) {
+                last_rows = current_rows;
+                last_cols = current_cols;
+                trigger_layout();
+            }
+        }
+
         if (idle_callback) {
             idle_callback();
         }
@@ -102,9 +129,6 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
         uint32_t result = notcurses_get(nc, &timeout_spec, &nc_input);
 
         if (result == static_cast<uint32_t>(-1)) {
-            if (errno == EINTR) {
-                trigger_layout();
-            }
             continue;
         }
 
