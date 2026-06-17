@@ -3,6 +3,7 @@
 #include "notui/Button.h"
 #include <notcurses/notcurses.h>
 #include <clocale>
+#include <cerrno>
 #include <ctime>
 #include <vector>
 #include <functional>
@@ -101,6 +102,9 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
         uint32_t result = notcurses_get(nc, &timeout_spec, &nc_input);
 
         if (result == static_cast<uint32_t>(-1)) {
+            if (errno == EINTR) {
+                trigger_layout();
+            }
             continue;
         }
 
