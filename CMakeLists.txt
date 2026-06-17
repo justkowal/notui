@@ -25,7 +25,15 @@ target_include_directories(notui PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-target_link_libraries(notui PUBLIC PkgConfig::NOTCURSES)
+if(MINGW)
+    link_directories(${NOTCURSES_STATIC_LIBRARY_DIRS})
+    target_include_directories(notui PUBLIC ${NOTCURSES_INCLUDE_DIRS})
+    set(NOTUI_MINGW_LIBS ${NOTCURSES_STATIC_LIBRARIES})
+    list(REMOVE_ITEM NOTUI_MINGW_LIBS "notcurses")
+    target_link_libraries(notui PUBLIC ${NOTUI_MINGW_LIBS} ws2_32 secur32)
+else()
+    target_link_libraries(notui PUBLIC PkgConfig::NOTCURSES)
+endif()
 
 # exclude from clang-tidy
 set_target_properties(notui PROPERTIES CXX_CLANG_TIDY "")

@@ -35,8 +35,8 @@ private:
 
 public:
     StyleProxy() = default;
-    StyleProxy(Widget* owner, bool is_focused_style)
-        : owner(owner), is_focused_style(is_focused_style) {}
+    StyleProxy(Widget* owner_in, bool is_focused_style_in)
+        : owner(owner_in), is_focused_style(is_focused_style_in) {}
 
     auto operator=(const Style& other) -> StyleProxy&;
 

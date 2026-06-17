@@ -49,7 +49,7 @@ Compositor::Compositor(std::shared_ptr<Widget> root_widget) : root(std::move(roo
     struct notcurses_options opts = {
         .flags = NCOPTION_SUPPRESS_BANNERS
     };
-    nc = notcurses_init(&opts, stdout);
+    nc = notcurses_core_init(&opts, stdout);
     notcurses_mice_enable(nc, NCMICE_DRAG_EVENT);
 
     if (root != nullptr) {
