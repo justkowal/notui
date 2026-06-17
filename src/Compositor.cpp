@@ -76,7 +76,7 @@ void Compositor::trigger_layout() {
     }
     unsigned rows = 0;
     unsigned cols = 0;
-    notcurses_term_dim_yx(nc, &rows, &cols);
+    notcurses_refresh(nc, &rows, &cols);
     root->destroy_planes(); 
     root->layout(notcurses_stdplane(nc), Point{0, 0}, Size{static_cast<int>(rows), static_cast<int>(cols)});
     
