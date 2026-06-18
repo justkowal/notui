@@ -84,7 +84,6 @@ struct Widget {
     bool focusable = false;
     bool is_focused = false;
     
-    // Deprecated: Use IOverlay interface instead
     bool is_overlay = false;
     
     bool disabled = false;
@@ -128,17 +127,15 @@ struct Widget {
     virtual auto contains_focus() -> bool;
     virtual auto get_widget_at(int pos_y, int pos_x) -> Widget*;
     
-    // Deprecated: Use IOverlay interface instead
     virtual void raise_to_top() {
         if (plane != nullptr) {
             ncplane_move_top(plane);
         }
     }
 
-    // Deprecated: Use IOverlay interface instead
     virtual auto is_active_overlay() -> bool {
         return is_overlay;
     }
 };
 
-} // namespace notui
+} 

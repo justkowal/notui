@@ -4,23 +4,19 @@
 
 namespace notui {
 
-// ── anonymous-namespace helpers (no header declarations needed) ───────────────
 namespace {
 
-// Bundles the commonly-computed layout/render dimensions so that helpers
-// never receive a long list of adjacent same-type ints.
 struct ScrollDims {
     int border_offset   = 0;
     int usable_h        = 0;
     int usable_w        = 0;
     int total_content_h = 0;
     int max_scroll      = 0;
-    int outer_height    = 0;  // widget height (passed to helpers so they need no bare int)
-    int outer_width     = 0;  // widget width
-    int scroll_y        = 0;  // current scroll position
+    int outer_height    = 0;  
+    int outer_width     = 0;  
+    int scroll_y        = 0;  
 };
 
-// Bundles the three scalar inputs to compute_dims so no adjacent ints appear.
 struct WidgetSize {
     Size size;
     int scroll_y = 0;
@@ -135,7 +131,6 @@ void draw_fade_overlays(struct ncplane* overlay, const Style& style,
     int bottom_y  = dims.outer_height - style.pb - dims.border_offset - 1;
     int inner_x   = style.pl + dims.border_offset;
 
-    // 1. Setup channel options using the style's background color
     uint64_t opaque_ch = 0;
     ncchannels_set_fg_alpha(&opaque_ch, NCALPHA_TRANSPARENT);
     ncchannels_set_bg_alpha(&opaque_ch, NCALPHA_OPAQUE);
@@ -151,7 +146,6 @@ void draw_fade_overlays(struct ncplane* overlay, const Style& style,
     ncchannels_set_fg_alpha(&light_ch, NCALPHA_OPAQUE);
     ncchannels_set_fg_rgb8(&light_ch, style.bg_r, style.bg_g, style.bg_b);
 
-    // 2. Fill padding/border zones with opaque mask
     ncplane_set_channels(overlay, opaque_ch);
     for (int row = dims.border_offset; row < top_y; ++row) {
         for (int col = 0; col < content_w; ++col) {
@@ -164,21 +158,17 @@ void draw_fade_overlays(struct ncplane* overlay, const Style& style,
         }
     }
 
-    // 3. Top fade gradient (fades from solid at top_y to transparent at top_y+2)
     if (dims.scroll_y > 0 && dims.usable_h > 4) {
-        // Outermost: Solid background color
         ncplane_set_channels(overlay, opaque_ch);
         for (int col = 0; col < content_w; ++col) {
             ncplane_putstr_yx(overlay, top_y, inner_x + col, " ");
         }
-        // Middle: Medium shade
         if (top_y + 1 < bottom_y) {
             ncplane_set_channels(overlay, medium_ch);
             for (int col = 0; col < content_w; ++col) {
                 ncplane_putstr_yx(overlay, top_y + 1, inner_x + col, "▒");
             }
         }
-        // Innermost: Light shade
         if (top_y + 2 < bottom_y) {
             ncplane_set_channels(overlay, light_ch);
             for (int col = 0; col < content_w; ++col) {
@@ -187,21 +177,17 @@ void draw_fade_overlays(struct ncplane* overlay, const Style& style,
         }
     }
 
-    // 4. Bottom fade gradient (fades from solid at bottom_y to transparent at bottom_y-2)
     if (dims.scroll_y < dims.max_scroll && dims.usable_h > 4) {
-        // Outermost: Solid background color
         ncplane_set_channels(overlay, opaque_ch);
         for (int col = 0; col < content_w; ++col) {
             ncplane_putstr_yx(overlay, bottom_y, inner_x + col, " ");
         }
-        // Middle: Medium shade
         if (bottom_y - 1 > top_y) {
             ncplane_set_channels(overlay, medium_ch);
             for (int col = 0; col < content_w; ++col) {
                 ncplane_putstr_yx(overlay, bottom_y - 1, inner_x + col, "▒");
             }
         }
-        // Innermost: Light shade
         if (bottom_y - 2 > top_y) {
             ncplane_set_channels(overlay, light_ch);
             for (int col = 0; col < content_w; ++col) {
@@ -229,9 +215,8 @@ void clamp_scroll_for_focus(std::vector<std::shared_ptr<Widget>>& children,
     }
 }
 
-} // anonymous namespace
+} 
 
-// ── ScrollArea implementation ─────────────────────────────────────────────────
 
 ScrollArea::ScrollArea() {
     flex = 1;
@@ -258,19 +243,19 @@ void ScrollArea::layout(struct ncplane* parent_plane, Point pos, Size size) {
         return;
     }
 
-    struct ncplane_options opts = {
-        .y = 0, .x = 0,
-        .rows = static_cast<unsigned>(size.height),
-        .cols = static_cast<unsigned>(size.width),
-        .userptr = this,
-        .name = "scroll_overlay",
-        .resizecb = nullptr,
-        .flags = 0
-    };
+    struct ncplane_options opts = {};
+    opts.y = 0;
+    opts.x = 0;
+    opts.rows = static_cast<unsigned>(size.height);
+    opts.cols = static_cast<unsigned>(size.width);
+    opts.userptr = this;
+    opts.name = "scroll_overlay";
+    opts.resizecb = nullptr;
+    opts.flags = 0;
     overlay_plane = ncplane_create(plane, &opts);
 
     const ScrollDims dims = compute_dims(style, children, WidgetSize{size, scroll_y});
-    int child_w = dims.usable_w - 1; // Leave room for scrollbar
+    int child_w = dims.usable_w - 1; 
 
     clamp_scroll_for_focus(children, scroll_y, dims.usable_h);
 
@@ -281,7 +266,6 @@ void ScrollArea::layout(struct ncplane* parent_plane, Point pos, Size size) {
         scroll_y = 0;
     }
 
-    // Place each child within the visible scroll viewport
     int vis_y = 0;
     for (auto& child : children) {
         if (child == nullptr) {
@@ -289,7 +273,6 @@ void ScrollArea::layout(struct ncplane* parent_plane, Point pos, Size size) {
         }
         int y_in_plane = style.pt + dims.border_offset + (vis_y - scroll_y);
 
-        // Only layout children whose planes lie entirely within [0, size.height).
         if (y_in_plane >= 0 && y_in_plane + child->fixed_height <= size.height) {
             child->layout(plane, Point{y_in_plane, style.pl + dims.border_offset},
                           Size{child->fixed_height, child_w});
@@ -301,14 +284,12 @@ void ScrollArea::layout(struct ncplane* parent_plane, Point pos, Size size) {
 }
 
 void ScrollArea::render() {
-    // 1. Render all children on the base plane first
     Container::render();
 
     if (overlay_plane == nullptr) {
         return;
     }
 
-    // 2. Clear overlay, make it transparent in the middle
     uint64_t base_channels = 0;
     ncchannels_set_bg_alpha(&base_channels, NCALPHA_TRANSPARENT);
     ncchannels_set_fg_alpha(&base_channels, NCALPHA_TRANSPARENT);
@@ -317,16 +298,12 @@ void ScrollArea::render() {
 
     const ScrollDims dims = compute_dims(style, children, WidgetSize{Size{height, width}, scroll_y});
 
-    // 3. Border on overlay (masks card overflows)
     draw_border(overlay_plane, style, dims);
 
-    // 4. Scrollbar on overlay
     draw_scrollbar(overlay_plane, style, dims);
 
-    // 5. Top/bottom fade-out gradient overlays
     draw_fade_overlays(overlay_plane, style, dims);
 
-    // 6. Raise overlay to top so it masks the child cards
     ncplane_move_top(overlay_plane);
 }
 
@@ -339,7 +316,6 @@ auto ScrollArea::handle_input(const ncinput& nc_input) -> bool {
 
     bool changed = false;
 
-    // Arrow key / wheel scrolling
     if (nc_input.id == NCKEY_SCROLL_UP || nc_input.id == NCKEY_UP) {
         if (scroll_y > 0) {
             scroll_y -= 1;
@@ -352,7 +328,6 @@ auto ScrollArea::handle_input(const ncinput& nc_input) -> bool {
         }
     }
 
-    // Scrollbar track click / drag
     int track_x     = ncplane_abs_x(plane) + width - style.pr - 1 - dims.border_offset;
     int track_start = ncplane_abs_y(plane) + style.pt + dims.border_offset;
     bool is_click   = (nc_input.id == NCKEY_BUTTON1 || nc_input.id == NCKEY_MOTION);
@@ -406,7 +381,6 @@ auto ScrollArea::get_widget_at(int pos_y, int pos_x) -> Widget* {
         int top_y    = plane_y + style.pt + border_offset;
         int bottom_y = plane_y + height - style.pb - border_offset - 1;
 
-        // Only route events to children within the visible viewport
         if (pos_y >= top_y && pos_y <= bottom_y) {
             for (auto const& child : children | std::views::reverse) {
                 if (child != nullptr) {
@@ -422,4 +396,4 @@ auto ScrollArea::get_widget_at(int pos_y, int pos_x) -> Widget* {
     return nullptr;
 }
 
-} // namespace notui
+} 

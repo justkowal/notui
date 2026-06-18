@@ -49,16 +49,15 @@ void Canvas::layout(struct ncplane* parent_plane, Point pos, Size size) {
     int inner_w = size.width - style.pl - style.pr - (style.framed ? 2 : 0);
     
     if (inner_h > 0 && inner_w > 0) {
-        struct ncplane_options opts = {
-            .y = client_y,
-            .x = client_x,
-            .rows = static_cast<unsigned>(inner_h),
-            .cols = static_cast<unsigned>(inner_w),
-            .userptr = this,
-            .name = "canvas_visual",
-            .resizecb = nullptr,
-            .flags = 0
-        };
+        struct ncplane_options opts = {};
+        opts.y = client_y;
+        opts.x = client_x;
+        opts.rows = static_cast<unsigned>(inner_h);
+        opts.cols = static_cast<unsigned>(inner_w);
+        opts.userptr = this;
+        opts.name = "canvas_visual";
+        opts.resizecb = nullptr;
+        opts.flags = 0;
         visual_plane = ncplane_create(plane, &opts);
     }
 }
@@ -120,7 +119,6 @@ void Canvas::render() {
             ncplane_putstr_yx(visual_plane, 0, 0, "No Notcurses Ctx");
         }
     } else if (visual == nullptr) {
-        // draw placeholder if image missing
         int border_offset = style.framed ? 1 : 0;
         int client_y = style.pt + border_offset;
         int client_x = style.pl + border_offset;
@@ -137,4 +135,4 @@ void Canvas::render() {
     }
 }
 
-} // namespace notui
+} 

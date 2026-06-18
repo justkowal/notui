@@ -41,7 +41,7 @@ auto wrap_text(const std::string& input, int max_w) -> std::vector<std::string> 
     return lines;
 }
 
-} // namespace
+} 
 
 Label::Label(std::string label_text, Size fixed_size, bool center) 
     : text(std::move(label_text)), centered(center) { 
@@ -91,7 +91,6 @@ void Label::render() {
         if (highlight_query.empty()) {
             ncplane_putstr_yx(plane, line_y, text_x, line_str.c_str());
         } else {
-            // Find occurrences case-insensitively
             std::string line_lower = line_str;
             std::transform(line_lower.begin(), line_lower.end(), line_lower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
             std::string query_lower = highlight_query;
@@ -100,25 +99,20 @@ void Label::render() {
             size_t last_pos = 0;
             size_t pos = line_lower.find(query_lower, 0);
 
-            // Move cursor to starting point
             ncplane_cursor_move_yx(plane, line_y, text_x);
 
             while (pos != std::string::npos) {
-                // Print prefix
                 if (pos > last_pos) {
                     std::string prefix = line_str.substr(last_pos, pos - last_pos);
                     ncplane_putstr(plane, prefix.c_str());
                 }
 
-                // Apply highlight style: Bold Yellow
                 ncplane_set_fg_rgb8(plane, 255, 255, 0);
                 ncplane_on_styles(plane, NCSTYLE_BOLD);
 
-                // Print match
                 std::string match = line_str.substr(pos, query_lower.length());
                 ncplane_putstr(plane, match.c_str());
 
-                // Restore original style
                 ncplane_off_styles(plane, NCSTYLE_MASK);
                 if (style.attrs != 0) {
                     ncplane_set_styles(plane, style.attrs);
@@ -129,7 +123,6 @@ void Label::render() {
                 pos = line_lower.find(query_lower, last_pos);
             }
 
-            // Print remaining suffix
             if (last_pos < line_str.length()) {
                 std::string suffix = line_str.substr(last_pos);
                 ncplane_putstr(plane, suffix.c_str());
@@ -138,4 +131,4 @@ void Label::render() {
     }
 }
 
-} // namespace notui
+} 

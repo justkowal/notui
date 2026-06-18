@@ -34,7 +34,7 @@ struct Style {
     uint8_t bg_r = 0, bg_g = 0, bg_b = 0;
     uint8_t fg_r = 255, fg_g = 255, fg_b = 255;
     uint32_t attrs = 0;
-    int pt = 0, pr = 0, pb = 0, pl = 0; // padding: top, right, bottom, left
+    int pt = 0, pr = 0, pb = 0, pl = 0; 
     bool transparent_bg = false;
     
     bool framed = false;
@@ -125,4 +125,4 @@ struct Theme {
     }
 };
 
-} // namespace notui
+} 

@@ -26,4 +26,4 @@ public:
     void set_checked(bool checked_state);
 };
 
-} // namespace notui
+} 

@@ -5,7 +5,6 @@
 
 namespace notui {
 
-// StyleProxy Implementation
 auto StyleProxy::get_style() const -> Style& {
     if (!owner->extended_styles) {
         owner->extended_styles = std::make_unique<ExtendedStateStyles>();
@@ -84,7 +83,6 @@ void StyleProxy::apply(struct ncplane* plane) const {
     get_style_const().apply(plane);
 }
 
-// Widget Implementation
 Widget::Widget() : focused_style(this, true), disabled_style(this, false) {}
 
 Widget::~Widget() {
@@ -113,15 +111,15 @@ void Widget::layout(struct ncplane* parent_plane, Point pos, Size size) {
         return;
     }
 
-    struct ncplane_options opts = {
-        .y = pos.y, .x = pos.x,
-        .rows = static_cast<unsigned>(size.height),
-        .cols = static_cast<unsigned>(size.width),
-        .userptr = this,
-        .name = "widget",
-        .resizecb = nullptr,
-        .flags = 0
-    };
+    struct ncplane_options opts = {};
+    opts.y = pos.y;
+    opts.x = pos.x;
+    opts.rows = static_cast<unsigned>(size.height);
+    opts.cols = static_cast<unsigned>(size.width);
+    opts.userptr = this;
+    opts.name = "widget";
+    opts.resizecb = nullptr;
+    opts.flags = 0;
     plane = ncplane_create(parent_plane, &opts);
 }
 
@@ -292,4 +290,4 @@ void Widget::emit(const std::string& event_name, const std::any& data) {
     }
 }
 
-} // namespace notui
+} 

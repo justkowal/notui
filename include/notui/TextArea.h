@@ -30,4 +30,4 @@ public:
     void set_text(const std::string& text);
 };
 
-} // namespace notui
+} 

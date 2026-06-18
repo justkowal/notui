@@ -38,4 +38,4 @@ public:
     [[nodiscard]] auto get_scaling() const -> ncscale_e { return scaling_mode; }
 };
 
-} // namespace notui
+} 

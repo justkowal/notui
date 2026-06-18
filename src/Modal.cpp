@@ -16,7 +16,6 @@ Modal::Modal(std::string title, std::string message, std::function<void(bool)> c
     title_label->style.fg({80, 150, 255}).attr(NCSTYLE_BOLD);
     add_child(title_label);
     
-    // message body label
     message_label = std::make_shared<Label>(std::move(message), Size{3, 46}, true);
     message_label->style.fg({200, 200, 200});
     add_child(message_label);
@@ -49,9 +48,9 @@ Modal::Modal(std::string title, std::string message, std::function<void(bool)> c
     add_child(btn_row);
 }
 
-Modal::Modal(std::string title, int width, int height) {
-    fixed_height = height;
-    fixed_width = width;
+Modal::Modal(std::string title, int modal_width, int modal_height) {
+    fixed_height = modal_height;
+    fixed_width = modal_width;
     is_overlay = true;
     
     style.bg({30, 30, 35}).fg({255, 255, 255}).frame(true, true);
@@ -76,20 +75,19 @@ void Modal::layout(struct ncplane* parent_plane, Point pos, Size size) {
         return;
     }
 
-    struct ncplane_options b_opts = {
-        .y = 0, .x = 0,
-        .rows = static_cast<unsigned>(size.height),
-        .cols = static_cast<unsigned>(size.width),
-        .userptr = this,
-        .name = "modal_backdrop",
-        .resizecb = nullptr,
-        .flags = 0
-    };
+    struct ncplane_options b_opts = {};
+    b_opts.y = 0;
+    b_opts.x = 0;
+    b_opts.rows = static_cast<unsigned>(size.height);
+    b_opts.cols = static_cast<unsigned>(size.width);
+    b_opts.userptr = this;
+    b_opts.name = "modal_backdrop";
+    b_opts.resizecb = nullptr;
+    b_opts.flags = 0;
     backdrop_plane = ncplane_create(parent_plane, &b_opts);
     if (backdrop_plane != nullptr) {
         ncplane_move_top(backdrop_plane);
         
-        // dim backdrop plane
         uint64_t b_channels = 0;
         ncchannels_set_bg_rgb8(&b_channels, 10, 10, 15);
         ncchannels_set_bg_alpha(&b_channels, NCALPHA_BLEND);
@@ -118,4 +116,4 @@ void Modal::raise_to_top() {
     Widget::raise_to_top();
 }
 
-} // namespace notui
+} 

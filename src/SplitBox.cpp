@@ -21,11 +21,9 @@ void SplitBox::layout(struct ncplane* parent_plane, Point pos, Size size) {
     int usable_w = std::max(0, size.width - style.pl - style.pr - (style.framed ? 2 : 0));
 
     if (!split_enabled_ || children.size() < 2) {
-        // lay out first child
         if (children[0] != nullptr) {
             children[0]->layout(plane, Point{style.pt + border_offset, style.pl + border_offset}, Size{usable_h, usable_w});
         }
-        // destroy planes for other children
         for (size_t i = 1; i < children.size(); ++i) {
             if (children[i] != nullptr) {
                 children[i]->destroy_planes();
@@ -35,7 +33,7 @@ void SplitBox::layout(struct ncplane* parent_plane, Point pos, Size size) {
     }
 
     if (orientation_ == Orientation::Horizontal) {
-        int w_total = usable_w - 1; // 1 column for divider
+        int w_total = usable_w - 1; 
         if (w_total < 0) w_total = 0;
 
         int w1 = static_cast<int>(w_total * split_percent_);
@@ -54,7 +52,7 @@ void SplitBox::layout(struct ncplane* parent_plane, Point pos, Size size) {
             children[1]->layout(plane, Point{style.pt + border_offset, style.pl + border_offset + w1 + 1}, Size{usable_h, w2});
         }
     } else {
-        int h_total = usable_h - 1; // 1 row for divider
+        int h_total = usable_h - 1; 
         if (h_total < 0) h_total = 0;
 
         int h1 = static_cast<int>(h_total * split_percent_);
@@ -137,7 +135,6 @@ auto SplitBox::handle_input(const ncinput& nc_input) -> bool {
     int usable_h = std::max(0, height - style.pt - style.pb - (style.framed ? 2 : 0));
     int usable_w = std::max(0, width - style.pl - style.pr - (style.framed ? 2 : 0));
 
-    // handle button release
     if (nc_input.evtype == NCTYPE_RELEASE) {
         if (is_dragging_) {
             is_dragging_ = false;
@@ -274,4 +271,4 @@ auto SplitBox::get_split_percent() const -> double {
     return split_percent_;
 }
 
-} // namespace notui
+} 

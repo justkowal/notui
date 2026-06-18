@@ -6,11 +6,9 @@
 #undef fstat64
 
 extern "C" {
-    // Declare functions with compiler asm redirect to the actual MSVCRT symbols
     int MSVCRT_stat64(const char* path, void* buffer) __asm__("_stat64");
     int MSVCRT_fstat64(int fd, void* buffer) __asm__("_fstat64");
 
-    // Functions from ncurses/libc
     extern char* tiparm(const char* format, ...);
     extern char* tigetstr(const char* capname);
     extern int tigetnum(const char* capname);
@@ -23,10 +21,8 @@ extern "C" {
     extern int wctob(wint_t c);
     extern wint_t btowc(int c);
 
-    // Global variable from ncurses
     extern void* cur_term;
 
-    // Redirection pointers to bypass DLL import libraries when static linking
     // NOLINTBEGIN(bugprone-reserved-identifier,cert-dcl51-cpp,readability-identifier-naming,cppcoreguidelines-pro-type-reinterpret-cast,google-readability-casting)
     void* __imp_tiparm = (void*)&tiparm;
     void* __imp_tigetstr = (void*)&tigetstr;
@@ -42,9 +38,6 @@ extern "C" {
     void* __imp_cur_term = (void*)&cur_term;
     // NOLINTEND(bugprone-reserved-identifier,cert-dcl51-cpp,readability-identifier-naming,cppcoreguidelines-pro-type-reinterpret-cast,google-readability-casting)
 
-    // Wrapper functions to map MSYS2's 64-bit time functions (referenced in precompiled libnotcurses)
-    // to host's standard functions. Since both host and target are 64-bit, the data layouts of time_t
-    // and timespec structs are binary-compatible.
     int clock_gettime64(int clock_id, struct timespec* tp) {
         extern int clock_gettime(clockid_t, struct timespec*);
         return clock_gettime(static_cast<clockid_t>(clock_id), tp);
@@ -58,7 +51,6 @@ extern "C" {
         return pthread_cond_timedwait(cond, mutex, abstime);
     }
 
-    // Wrappers for 64-bit stat functions which ncurses compiled objects expect
     int stat64(const char* path, void* buffer) {
         return MSVCRT_stat64(path, buffer);
     }

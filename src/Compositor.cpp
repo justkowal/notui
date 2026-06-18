@@ -56,13 +56,12 @@ auto get_terminal_size(int& rows, int& cols) -> bool {
     }
     return false;
 }
-} // namespace
+} 
 
 Compositor::Compositor(std::shared_ptr<Widget> root_widget) : root(std::move(root_widget)) {
     std::setlocale(LC_ALL, "");
-    struct notcurses_options opts = {
-        .flags = NCOPTION_SUPPRESS_BANNERS
-    };
+    struct notcurses_options opts = {};
+    opts.flags = NCOPTION_SUPPRESS_BANNERS;
     nc = notcurses_core_init(&opts, stdout);
     notcurses_mice_enable(nc, NCMICE_DRAG_EVENT);
 
@@ -136,7 +135,6 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
             continue;
         }
 
-        // keep widgets alive during event loop
         std::vector<std::shared_ptr<Widget>> keep_alive;
         if (root != nullptr) {
             std::function<void(const std::shared_ptr<Widget>&)> collect;
@@ -171,7 +169,6 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
             } else {
                 focus_manager.focus_next();
             }
-            // force layout if tabbed into scrollarea
             trigger_layout(); 
             continue;
         }
@@ -181,7 +178,6 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
         
         bool handled = false;
 
-        // spatial routing for mouse
         if (is_mouse && root != nullptr) {
             Widget* active_overlay = FocusManager::get_active_overlay(root.get());
             Widget* focused = focus_manager.focusedWidget();
@@ -193,7 +189,6 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
                 hit = root->get_widget_at(nc_input.y, nc_input.x);
             }
             if (hit != nullptr) {
-                // block interaction if outside active overlay
                 if (active_overlay != nullptr) {
                     bool inside_overlay = false;
                     Widget* temp = hit;
@@ -219,7 +214,6 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
                     }
                 }
                 
-                // bubble event upwards
                 Widget* curr = hit;
                 while (curr != nullptr) {
                     Widget* next = curr->parent;
@@ -237,7 +231,7 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
         if (!handled && !is_mouse) {
             Widget* focused_widget = focus_manager.focusedWidget();
             if (focused_widget != nullptr && focused_widget->plane != nullptr) {
-                handled = focused_widget->handle_input(nc_input); // don't send keystrokes to invisible widgets
+                handled = focused_widget->handle_input(nc_input); 
             }
         }
 
@@ -249,4 +243,4 @@ void Compositor::run() { // NOLINT(readability-function-cognitive-complexity)
     }
 }
 
-} // namespace notui
+} 

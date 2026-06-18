@@ -1,5 +1,3 @@
-# notui terminal library
-# consumed via add_subdirectory from parent
 
 add_library(notui STATIC
     src/Widget.cpp
@@ -20,7 +18,6 @@ add_library(notui STATIC
     src/Canvas.cpp
 )
 
-# build interface include path
 target_include_directories(notui PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
@@ -35,5 +32,23 @@ else()
     target_link_libraries(notui PUBLIC PkgConfig::NOTCURSES)
 endif()
 
-# exclude from clang-tidy
+target_compile_options(notui PRIVATE
+    $<$<CONFIG:Debug>:
+        -Wall
+        -Wextra
+        -Wshadow
+    >
+    $<$<CONFIG:Release>:
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Wconversion
+        -Wshadow
+        -Wformat=2
+        -Wnon-virtual-dtor
+        -Wold-style-cast
+        -Werror
+    >
+)
+
 set_target_properties(notui PROPERTIES CXX_CLANG_TIDY "")

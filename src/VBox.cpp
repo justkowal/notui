@@ -13,7 +13,7 @@ bool is_overlay_child(const std::shared_ptr<Widget>& child) {
     }
     return child->is_overlay;
 }
-} // namespace
+} 
 
 void VBox::layout(struct ncplane* parent_plane, Point pos, Size size) { // NOLINT(readability-function-cognitive-complexity)
     Widget::layout(parent_plane, pos, size);
@@ -100,4 +100,4 @@ void VBox::layout(struct ncplane* parent_plane, Point pos, Size size) { // NOLIN
     }
 }
 
-} // namespace notui
+} 

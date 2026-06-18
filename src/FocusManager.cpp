@@ -28,7 +28,7 @@ auto find_active_overlay(Widget* widget) -> Widget* {
     }
     return nullptr;
 }
-} // namespace
+} 
 
 void FocusManager::rebuild(Widget& root) {
     if (!needs_rebuild && cached_root == &root) {
@@ -289,4 +289,4 @@ void FocusManager::unregister_widget(Widget* widget) {
     }
 }
 
-} // namespace notui
+} 

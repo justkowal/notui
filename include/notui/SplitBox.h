@@ -37,4 +37,4 @@ private:
     bool is_dragging_{false};
 };
 
-} // namespace notui
+} 

@@ -9,4 +9,4 @@ public:
     void layout(struct ncplane* parent_plane, Point pos, Size size) override;
 };
 
-} // namespace notui
+} 

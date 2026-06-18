@@ -136,7 +136,7 @@ public:
             return false; 
         }
         if (nc_input.id == NCKEY_UP || nc_input.id == NCKEY_DOWN || nc_input.id == NCKEY_SCROLL_UP || nc_input.id == NCKEY_SCROLL_DOWN) {
-            return false; // bubble vertical events to scrollarea
+            return false; 
         }
 
         std::string prospective_buffer = buffer;
@@ -176,4 +176,4 @@ public:
     }
 };
 
-} // namespace notui
+} 

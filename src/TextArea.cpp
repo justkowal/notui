@@ -6,7 +6,6 @@
 namespace notui {
 namespace {
 
-// bundles draw_cursor positional data
 struct CursorCtx {
     int client_y = 0;
     int client_x = 0;
@@ -39,7 +38,6 @@ void draw_cursor(struct ncplane* plane, const Style& cur_style,
     ncplane_set_channels(plane, channels);
 }
 
-// handles navigation keys
 auto apply_motion_key(const ncinput& nc_input,
                       int& cursor_x, int& cursor_y,
                       const std::vector<std::string>& buffer_lines) -> bool {
@@ -74,7 +72,6 @@ auto apply_motion_key(const ncinput& nc_input,
     return false;
 }
 
-// handles text edits
 auto apply_edit_key(const ncinput& nc_input,
                     int& cursor_x, int& cursor_y,
                     std::vector<std::string>& buffer_lines) -> bool {
@@ -131,7 +128,7 @@ auto apply_edit_key(const ncinput& nc_input,
     return false;
 }
 
-} // anonymous namespace
+} 
 
 TextArea::TextArea(std::string placeholder_hint, Size fixed_size)
     : placeholder(std::move(placeholder_hint)) {
@@ -199,7 +196,6 @@ void TextArea::render() {
         usable_w = 1;
     }
 
-    // adjust scroll offset to keep cursor visible
     if (cursor_y < scroll_top) {
         scroll_top = cursor_y;
     } else if (cursor_y >= scroll_top + usable_h) {
@@ -238,12 +234,10 @@ auto TextArea::handle_input(const ncinput& nc_input) -> bool {
         return false;
     }
 
-    // navigation, no change event
     if (apply_motion_key(nc_input, cursor_x, cursor_y, buffer_lines)) {
         return true;
     }
 
-    // edit, emit change
     if (apply_edit_key(nc_input, cursor_x, cursor_y, buffer_lines)) {
         emit("change", get_text());
         return true;
@@ -251,4 +245,4 @@ auto TextArea::handle_input(const ncinput& nc_input) -> bool {
     return false;
 }
 
-} // namespace notui
+} 

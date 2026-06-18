@@ -31,18 +31,15 @@ void Dropdown::render() {
     const Style& dropdown_style = *dropdown_style_ptr;
     
     if (expanded && !disabled) {
-        // temporarily grow plane to show list
         ncplane_resize(plane, 0, 0, 0, 0, 0, 0, 1 + static_cast<int>(options.size()), width);
         ncplane_move_top(plane);
     } else {
-        // shrink back to single line
         ncplane_resize(plane, 0, 0, 0, 0, 0, 0, 1, width);
     }
     
     dropdown_style.apply(plane);
     ncplane_erase(plane);
     
-    // draw collapsed header
     std::string disp = get_selected_value();
     if (disp.empty()) {
         disp = "-- Select --";
@@ -58,12 +55,10 @@ void Dropdown::render() {
     ncplane_putstr_yx(plane, 0, 0, header_text.c_str());
 
     if (expanded && !disabled) {
-        // draw options
         for (size_t i = 0; i < options.size(); ++i) {
             int row_y = 1 + static_cast<int>(i);
             bool opt_selected = (static_cast<int>(i) == selected_idx);
             
-            // highlight selected option
             if (opt_selected) {
                 ncplane_set_bg_rgb8(plane, 80, 150, 255);
                 ncplane_set_fg_rgb8(plane, 0, 0, 0);
@@ -82,7 +77,6 @@ void Dropdown::render() {
         }
     }
 
-    // reset debouncing flag
     just_opened = false;
 }
 
@@ -98,7 +92,6 @@ auto Dropdown::handle_input(const ncinput& nc_input) -> bool { // NOLINT(readabi
     bool was_expanded = expanded;
 
     if (!was_expanded) {
-        // toggle open on enter/space/click
         if ((nc_input.id == NCKEY_ENTER || nc_input.id == 13 || nc_input.id == 10 || nc_input.id == ' ' || nc_input.id == NCKEY_BUTTON1) && 
             (nc_input.evtype == NCTYPE_PRESS || nc_input.evtype == NCTYPE_UNKNOWN)) {
             expanded = true;
@@ -107,7 +100,6 @@ auto Dropdown::handle_input(const ncinput& nc_input) -> bool { // NOLINT(readabi
             return true;
         }
     } else {
-        // debounce: ignore events within cooldown
         if (just_opened) {
             return true;
         }
@@ -116,7 +108,6 @@ auto Dropdown::handle_input(const ncinput& nc_input) -> bool { // NOLINT(readabi
             return true;
         }
 
-        // handle events when open
         if (nc_input.id == NCKEY_UP && (nc_input.evtype == NCTYPE_PRESS || nc_input.evtype == NCTYPE_UNKNOWN)) {
             if (selected_idx > 0) {
                 selected_idx--;
@@ -191,4 +182,4 @@ auto Dropdown::is_active_overlay() -> bool {
     return expanded;
 }
 
-} // namespace notui
+} 

@@ -38,4 +38,4 @@ private:
     std::function<bool(const ncinput&)> global_shortcut_handler = nullptr;
 };
 
-} // namespace notui
+} 

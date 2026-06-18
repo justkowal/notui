@@ -22,7 +22,7 @@ protected:
 
 public:
     explicit Modal(std::string title, std::string message, std::function<void(bool)> callback);
-    explicit Modal(std::string title, int width, int height);
+    explicit Modal(std::string title, int modal_width, int modal_height);
     ~Modal() override = default;
 
     Modal(const Modal&) = delete;
@@ -36,4 +36,4 @@ public:
     auto is_active_overlay() -> bool override { return is_overlay; }
 };
 
-} // namespace notui
+} 

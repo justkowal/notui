@@ -24,4 +24,4 @@ public:
     auto handle_input(const ncinput& nc_input) -> bool override;
 };
 
-} // namespace notui
+} 

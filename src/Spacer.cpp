@@ -11,4 +11,4 @@ void Spacer::render() {
     ncplane_erase(plane); 
 }
 
-} // namespace notui
+} 
